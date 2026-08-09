@@ -7,12 +7,19 @@ from app.services.llm_service import llm_service
 
 class VerificationAgent:
     """
-    Verifies whether retrieved knowledge provides sufficient
-    support for the user's question.
+    Verifies whether retrieved information provides
+    sufficient evidence for the user's question.
 
-    The agent preserves the original retrieved document
-    content so downstream agents such as the Eligibility
-    Agent can reason from the actual evidence.
+    The agent preserves:
+
+    - original evidence
+    - source metadata
+    - source URL
+    - source title
+    - source trust level
+    - source trust score
+
+    The agent does not create new facts.
     """
 
     SYSTEM_PROMPT = """
@@ -25,16 +32,31 @@ Use ONLY the supplied retrieved information.
 
 Do not introduce facts from outside the supplied information.
 
-For each retrieved document, determine whether it provides
-useful information for answering the user's question.
+Each retrieved document has a source trust level:
 
-Return ONLY valid JSON in this format:
+HIGH:
+Official government source. It can provide authoritative
+support for a government scheme claim.
+
+MEDIUM:
+Reputable secondary or academic source. It can provide
+supporting context but cannot independently establish an
+official government policy claim.
+
+LOW:
+Unknown, private, aggregator, social media, or user-generated
+source. It cannot independently establish that a government
+scheme officially exists.
+
+For each retrieved document, determine whether its content
+actually provides useful evidence for the user's question.
+
+Return ONLY valid JSON in this exact format:
 
 {
     "verified_information": [
         {
-            "scheme_name": "scheme name",
-            "section": "section name",
+            "document_index": 1,
             "supported": true,
             "reason": "short explanation"
         }
@@ -43,10 +65,20 @@ Return ONLY valid JSON in this format:
 
 Rules:
 
+- document_index must refer to the DOCUMENT number provided.
 - supported must be either true or false.
+- Do not invent document indexes.
 - Do not invent scheme names.
 - Do not invent sections.
-- Do not add information that is absent from the retrieved documents.
+- Do not add facts that are absent from the retrieved document.
+- Do not treat a LOW trust source as authoritative evidence
+  for an official government scheme.
+- A MEDIUM trust source may provide supporting information,
+  but it must not be described as an official government source.
+- A HIGH trust source may provide authoritative support when
+  its content directly supports the question.
+- If the document does not actually support the question,
+  mark supported as false.
 - Keep the reason short.
 """.strip()
 
@@ -81,7 +113,7 @@ Rules:
             }
 
         # --------------------------------------------------
-        # Validate retrieved documents
+        # Validate documents
         # --------------------------------------------------
 
         if not documents:
@@ -90,7 +122,7 @@ Rules:
             }
 
         # --------------------------------------------------
-        # Build context for LLM
+        # Build context
         # --------------------------------------------------
 
         context_parts = []
@@ -109,21 +141,41 @@ Rules:
                 f"""
 DOCUMENT {index}
 
+Source Type:
+{metadata.get("source_type", "knowledge_base")}
+
+Source Trust Level:
+{metadata.get("trust_level", "high")}
+
+Source Trust Score:
+{metadata.get("trust_score", 1.0)}
+
+Trusted Source:
+{metadata.get("trusted_source", True)}
+
+Source Title:
+{metadata.get("title", "")}
+
+Source URL:
+{metadata.get("url", "")}
+
 Scheme:
-{metadata.get("scheme_name", "Unknown")}
+{metadata.get("scheme_name", "")}
 
 Section:
-{metadata.get("section", "Unknown")}
+{metadata.get("section", "")}
 
 Domain:
-{metadata.get("domain", "Unknown")}
+{metadata.get("domain", "")}
 
 Content:
 {document.get("text", "")}
 """.strip()
             )
 
-        context = "\n\n".join(context_parts)
+        context = "\n\n".join(
+            context_parts
+        )
 
         # --------------------------------------------------
         # Build verification prompt
@@ -138,8 +190,13 @@ RETRIEVED INFORMATION:
 
 {context}
 
-Evaluate which retrieved documents actually support
-answering the user's question.
+Evaluate which DOCUMENTS actually provide useful
+supporting evidence for answering the question.
+
+Pay particular attention to the source trust level.
+
+Do not assume that a scheme is officially valid merely
+because a low-trust website mentions it.
 """.strip()
 
         messages = [
@@ -163,14 +220,18 @@ answering the user's question.
         )
 
         # --------------------------------------------------
-        # Parse LLM response
+        # Parse response
         # --------------------------------------------------
 
         try:
-            data: dict[str, Any] = json.loads(response)
+            data: dict[str, Any] = json.loads(
+                response
+            )
 
-        except (json.JSONDecodeError, TypeError):
-
+        except (
+            json.JSONDecodeError,
+            TypeError,
+        ):
             return {
                 "verified_information": [],
                 "errors": [
@@ -190,123 +251,172 @@ answering the user's question.
             verified_information = []
 
         # --------------------------------------------------
-        # Attach original evidence
+        # Enrich using original documents
         # --------------------------------------------------
 
         enriched_information = []
 
         for item in verified_information:
 
-            if not isinstance(item, dict):
+            if not isinstance(
+                item,
+                dict,
+            ):
                 continue
 
-            scheme_name = item.get(
+            document_index = item.get(
+                "document_index"
+            )
+
+            # --------------------------------------------------
+            # Validate document index
+            # --------------------------------------------------
+
+            if not isinstance(
+                document_index,
+                int,
+            ):
+                continue
+
+            if document_index < 1:
+                continue
+
+            if document_index > len(
+                documents
+            ):
+                continue
+
+            source_document = documents[
+                document_index - 1
+            ]
+
+            metadata = source_document.get(
+                "metadata",
+                {},
+            )
+
+            # --------------------------------------------------
+            # Source information
+            # --------------------------------------------------
+
+            source_type = metadata.get(
+                "source_type",
+                "knowledge_base",
+            )
+
+            source_url = metadata.get(
+                "url",
+                "",
+            )
+
+            source_title = metadata.get(
+                "title",
+                "",
+            )
+
+            trust_level = metadata.get(
+                "trust_level",
+                "high"
+                if source_type == "knowledge_base"
+                else "low",
+            )
+
+            trust_score = metadata.get(
+                "trust_score",
+                1.0
+                if source_type == "knowledge_base"
+                else 0.4,
+            )
+
+            trusted_source = metadata.get(
+                "trusted_source",
+                source_type == "knowledge_base",
+            )
+
+            scheme_name = metadata.get(
                 "scheme_name",
                 "",
             )
 
-            section = item.get(
+            section = metadata.get(
                 "section",
                 "",
             )
 
-            if not scheme_name:
-                continue
+            reason = item.get(
+                "reason",
+                "",
+            )
 
-            if not section:
-                continue
+            if not isinstance(
+                reason,
+                str,
+            ):
+                reason = ""
+
+            supported = bool(
+                item.get(
+                    "supported",
+                    False,
+                )
+            )
 
             # --------------------------------------------------
-            # Find matching retrieved document
+            # Safety rule:
+            #
+            # LOW-trust web sources cannot independently
+            # establish an official government claim.
             # --------------------------------------------------
 
-            source_document = None
-
-            for document in documents:
-
-                metadata = document.get(
-                    "metadata",
-                    {},
-                )
-
-                document_scheme = metadata.get(
-                    "scheme_name",
-                    "",
-                )
-
-                document_section = metadata.get(
-                    "section",
-                    "",
-                )
-
-                if (
-                    document_scheme == scheme_name
-                    and document_section == section
-                ):
-                    source_document = document
-                    break
+            if (
+                source_type == "web"
+                and trust_level == "low"
+            ):
+                supported = False
 
             # --------------------------------------------------
-            # Preserve verification result
+            # Safety rule:
+            #
+            # A web result without identifiable evidence
+            # cannot be treated as verified.
+            # --------------------------------------------------
+
+            evidence = source_document.get(
+                "text",
+                "",
+            )
+
+            if not evidence or not evidence.strip():
+                supported = False
+
+            # --------------------------------------------------
+            # Build enriched result
             # --------------------------------------------------
 
             enriched_item = {
                 "scheme_name": scheme_name,
                 "section": section,
-                "supported": bool(
-                    item.get(
-                        "supported",
-                        False,
-                    )
-                ),
-                "reason": (
-                    item.get(
-                        "reason",
-                        "",
-                    )
-                    if isinstance(
-                        item.get(
-                            "reason",
-                            "",
-                        ),
-                        str,
-                    )
-                    else ""
+                "supported": supported,
+                "reason": reason,
+                "evidence": evidence,
+                "metadata": metadata,
+                "source_type": source_type,
+                "source_url": source_url,
+                "source_title": source_title,
+                "trust_level": trust_level,
+                "trust_score": trust_score,
+                "trusted_source": bool(
+                    trusted_source
                 ),
             }
-
-            # --------------------------------------------------
-            # Add original retrieved evidence
-            # --------------------------------------------------
-
-            if source_document is not None:
-
-                enriched_item["evidence"] = (
-                    source_document.get(
-                        "text",
-                        "",
-                    )
-                )
-
-                enriched_item["metadata"] = (
-                    source_document.get(
-                        "metadata",
-                        {},
-                    )
-                )
-
-            else:
-
-                enriched_item["evidence"] = ""
-
-                enriched_item["metadata"] = {}
 
             enriched_information.append(
                 enriched_item
             )
 
         return {
-            "verified_information": enriched_information,
+            "verified_information":
+                enriched_information,
         }
 
 

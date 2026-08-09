@@ -93,6 +93,10 @@ async def process_query(
     PolicyPilot LangGraph workflow.
     """
 
+    # --------------------------------------------------------
+    # Validate query
+    # --------------------------------------------------------
+
     query = request.query.strip()
 
     if not query:
@@ -102,12 +106,13 @@ async def process_query(
         )
 
     # --------------------------------------------------------
-    # Load citizen profile from PostgreSQL
+    # Load citizen profile
     # --------------------------------------------------------
 
     user_profile = request.user_profile
 
     if request.user_id:
+
         try:
             user_uuid = UUID(request.user_id)
 
@@ -117,12 +122,26 @@ async def process_query(
                 detail="Invalid user_id.",
             ) from exc
 
-        database_profile = profile_service.get_profile(
-            user_uuid
-        )
+        try:
+            database_profile = (
+                profile_service.get_profile(
+                    user_uuid
+                )
+            )
 
-        if database_profile:
-            user_profile = database_profile
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to load citizen profile.",
+            ) from exc
+
+        if database_profile is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Citizen profile not found.",
+            )
+
+        user_profile = database_profile
 
     # --------------------------------------------------------
     # Build initial workflow state
@@ -138,15 +157,30 @@ async def process_query(
     # --------------------------------------------------------
 
     try:
+
         result = policy_pilot_workflow.invoke(
             initial_state
         )
 
     except Exception as exc:
+
         raise HTTPException(
             status_code=500,
-            detail=f"Workflow execution failed: {str(exc)}",
+            detail="Workflow execution failed.",
         ) from exc
+
+    # --------------------------------------------------------
+    # Validate workflow result
+    # --------------------------------------------------------
+
+    if not isinstance(
+        result,
+        dict,
+    ):
+        raise HTTPException(
+            status_code=500,
+            detail="Workflow returned an invalid response.",
+        )
 
     # --------------------------------------------------------
     # Return structured API response

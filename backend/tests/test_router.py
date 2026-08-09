@@ -20,7 +20,7 @@ def test_scheme_discovery_route():
 
     result = route_after_verification(state)
 
-    assert result == "end"
+    assert result == "recommendation_agent"
 
 
 def test_general_query_route():
@@ -31,4 +31,4 @@ def test_general_query_route():
 
     result = route_after_verification(state)
 
-    assert result == "end"
+    assert result == "final_response_agent"

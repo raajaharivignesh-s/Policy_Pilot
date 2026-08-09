@@ -16,12 +16,16 @@ class ProfileService:
     def get_profile(
         self,
         user_id: UUID,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | None:
         """
         Retrieve a citizen profile from PostgreSQL.
 
-        Returns an empty dictionary when the user/profile
-        does not exist.
+        Returns:
+            A dictionary containing the citizen profile
+            when the profile exists.
+
+            None when no profile exists for the
+            supplied user_id.
         """
 
         db = SessionLocal()
@@ -34,7 +38,7 @@ class ProfileService:
             )
 
             if profile is None:
-                return {}
+                return None
 
             return {
                 "age": profile.age,

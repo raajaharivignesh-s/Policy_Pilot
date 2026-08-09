@@ -3,15 +3,17 @@ from typing import Any
 from tavily import TavilyClient
 
 from app.core.settings import settings
+from app.services.source_trust_service import (
+    source_trust_service,
+)
 
 
 class SearchService:
     """
     Service responsible for searching the web using Tavily.
 
-    This service is intentionally kept separate from the
-    Research Agent so the agent does not depend directly
-    on the Tavily SDK.
+    The service also evaluates the trust level of each
+    returned web source before passing the result downstream.
     """
 
     def __init__(self):
@@ -40,8 +42,13 @@ class SearchService:
         """
         Search the web using Tavily.
 
-        Returns a normalized list of search results.
+        Each result is normalized and enriched with
+        source trust information.
         """
+
+        # --------------------------------------------------
+        # Validate query
+        # --------------------------------------------------
 
         if not query or not query.strip():
             return []
@@ -51,6 +58,10 @@ class SearchService:
 
         if not self.is_available():
             return []
+
+        # --------------------------------------------------
+        # Tavily search
+        # --------------------------------------------------
 
         try:
             response = self.client.search(
@@ -64,6 +75,10 @@ class SearchService:
         except Exception:
             return []
 
+        # --------------------------------------------------
+        # Validate response
+        # --------------------------------------------------
+
         results = response.get(
             "results",
             [],
@@ -75,6 +90,10 @@ class SearchService:
         ):
             return []
 
+        # --------------------------------------------------
+        # Normalize and evaluate sources
+        # --------------------------------------------------
+
         normalized_results = []
 
         for result in results:
@@ -85,23 +104,61 @@ class SearchService:
             ):
                 continue
 
+            title = result.get(
+                "title",
+                "",
+            )
+
+            url = result.get(
+                "url",
+                "",
+            )
+
+            content = result.get(
+                "content",
+                "",
+            )
+
+            score = result.get(
+                "score",
+                None,
+            )
+
+            # --------------------------------------------------
+            # Evaluate source trust
+            # --------------------------------------------------
+
+            trust = source_trust_service.evaluate(
+                url
+            )
+
             normalized_results.append(
                 {
-                    "title": result.get(
-                        "title",
+                    "title": title,
+                    "url": url,
+                    "content": content,
+                    "score": score,
+
+                    # Source trust information
+                    "trust_level": trust.get(
+                        "trust_level",
+                        "low",
+                    ),
+                    "trust_score": trust.get(
+                        "trust_score",
+                        0.0,
+                    ),
+                    "trusted_source": trust.get(
+                        "trusted_source",
+                        False,
+                    ),
+                    "source_domain": trust.get(
+                        "domain",
                         "",
                     ),
-                    "url": result.get(
-                        "url",
+                    "trust_reason": trust.get(
+                        "reason",
                         "",
-                    ),
-                    "content": result.get(
-                        "content",
-                        "",
-                    ),
-                    "score": result.get(
-                        "score",
-                        None,
                     ),
                 }
             )

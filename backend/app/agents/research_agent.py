@@ -240,10 +240,13 @@ class ResearchAgent:
         """
         Main research operation.
 
+        General queries:
+            No research is performed.
+
         Current-information query:
             Tavily first.
 
-        Normal query:
+        Normal policy query:
             ChromaDB first.
 
         If ChromaDB has no useful results:
@@ -266,6 +269,15 @@ class ResearchAgent:
                 "errors": [
                     "Cannot perform research without a query."
                 ],
+            }
+
+        # ======================================================
+        # GENERAL / UNSUPPORTED DOMAIN
+        # ======================================================
+
+        if domain == "general":
+            return {
+                "retrieved_documents": [],
             }
 
         # ======================================================
