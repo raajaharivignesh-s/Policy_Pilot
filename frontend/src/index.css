@@ -1,0 +1,49 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: #FAFAFA;
+    color: #1A1A1A;
+  }
+  h1, h2, h3, h4 { font-family: 'Outfit', sans-serif; }
+  .font-serif-title { font-family: 'Playfair Display', Georgia, serif; }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: #F5F5F5; }
+  ::-webkit-scrollbar-thumb { background: #D5D5D5; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #B5B5B5; }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-7 py-3 rounded-full bg-[#FF5500] hover:bg-[#E64D00] text-white font-medium text-sm
+           shadow-md shadow-orange-500/20 transition-all duration-200 hover:-translate-y-0.5
+           disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 px-7 py-3 rounded-full bg-white text-gray-800 font-medium text-sm
+           border border-gray-200 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:-translate-y-0.5;
+  }
+
+  .badge-eligible {
+    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold
+           bg-emerald-50 text-emerald-800 border border-emerald-200;
+  }
+
+  .badge-ineligible {
+    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold
+           bg-rose-50 text-rose-800 border border-rose-200;
+  }
+
+  .badge-insufficient {
+    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold
+           bg-amber-50 text-amber-800 border border-amber-200;
+  }
+}
