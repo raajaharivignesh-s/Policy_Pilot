@@ -1,6 +1,6 @@
 // API layer — all backend communication lives here
 
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = '/api';
 
 /**
  * Send a query to the PolicyPilot AI backend
@@ -9,7 +9,7 @@ const API_BASE = 'http://127.0.0.1:8000';
  * @returns {Promise<object>} API response
  */
 export async function submitQuery(query, userProfile = {}) {
-  const response = await fetch(`${API_BASE}/api/v1/query`, {
+  const response = await fetch(`${API_BASE}/v1/query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, user_profile: userProfile }),
