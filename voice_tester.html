@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PolicyPilot Voice & Text AI — Interactive Client</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #131b2e;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --recording: #ef4444;
+      --success: #10b981;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #1e293b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 720px;
+      background: var(--card-bg);
+      border: 1px solid #334155;
+      border-radius: 20px;
+      padding: 32px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    }
+
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #ffffff;
+    }
+
+    .status-badge {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: all 0.3s ease;
+    }
+
+    .status-badge.connected { background: var(--success); box-shadow: 0 0 12px var(--success); }
+    .status-badge.recording { background: var(--recording); box-shadow: 0 0 16px var(--recording); animation: pulse 1s infinite; }
+
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.2); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      margin-bottom: 24px;
+    }
+
+    /* Settings Control Panel */
+    .settings-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      background: #0b1120;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 18px;
+      margin-bottom: 24px;
+      gap: 16px;
+      font-size: 0.88rem;
+    }
+
+    .setting-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .setting-group select {
+      background: #1e293b;
+      color: var(--text);
+      border: 1px solid #475569;
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      outline: none;
+      font-size: 0.88rem;
+    }
+
+    /* Toggle Switch */
+    .switch-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #334155;
+      transition: .3s;
+      border-radius: 24px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider { background-color: var(--accent); }
+    input:checked + .slider:before { transform: translateX(20px); }
+
+    /* Controls (Mic) */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .mic-button {
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      border: none;
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      color: white;
+      font-size: 2.5rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.25s ease;
+      box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.5);
+      user-select: none;
+    }
+
+    .mic-button:hover { transform: scale(1.06); box-shadow: 0 15px 30px -5px rgba(59, 130, 246, 0.7); }
+    .mic-button.recording {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      box-shadow: 0 10px 30px rgba(239, 68, 68, 0.7);
+      transform: scale(1.1);
+    }
+
+    .mic-hint {
+      margin-top: 12px;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* Dual Input Section */
+    .input-divider {
+      display: flex;
+      align-items: center;
+      margin: 16px 0;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .input-divider::before, .input-divider::after {
+      content: "";
+      flex: 1;
+      border-bottom: 1px solid var(--border);
+    }
+    .input-divider span { padding: 0 12px; }
+
+    .text-input-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .text-input-row input {
+      flex: 1;
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 12px 18px;
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .text-input-row input:focus { border-color: var(--accent); }
+
+    .text-input-row button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 0 24px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .text-input-row button:hover { background: var(--accent-hover); }
+
+    /* Displays */
+    .box-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .box-label {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .speaker-btn {
+      background: #1e293b;
+      border: 1px solid #475569;
+      color: #60a5fa;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .speaker-btn:hover { background: #334155; color: #93c5fd; transform: translateY(-1px); }
+    .speaker-btn:active { transform: translateY(0); }
+
+    .output-box {
+      background: #0b1120;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      min-height: 56px;
+      margin-bottom: 20px;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      word-wrap: break-word;
+    }
+
+    .response-box {
+      min-height: 110px;
+      color: #93c5fd;
+      background: #090d16;
+      border-color: #1e293b;
+    }
+
+    .latency-info {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header-row">
+      <h1>
+        <span id="statusDot" class="status-badge"></span>
+        PolicyPilot Voice & Text AI
+      </h1>
+    </div>
+    <p class="subtitle">Low-Latency Instant Real-Time Speech & Text Streaming</p>
+
+    <!-- Settings Bar -->
+    <div class="settings-bar">
+      <div class="setting-group">
+        <span>AI Voice:</span>
+        <select id="voiceSelect">
+          <option value="nova" selected>Nova (Realistic Female)</option>
+          <option value="shimmer">Shimmer (Natural Soft Female)</option>
+          <option value="echo">Echo (Smooth Male)</option>
+          <option value="fable">Fable (Expressive Narrator)</option>
+          <option value="onyx">Onyx (Deep Authoritative Male)</option>
+          <option value="alloy">Alloy (Neutral Balanced)</option>
+        </select>
+      </div>
+
+      <div class="setting-group">
+        <label class="switch-label">
+          <span>Auto-Speak Voice</span>
+          <div class="switch">
+            <input type="checkbox" id="autoSpeakToggle" checked>
+            <span class="slider"></span>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Voice Control (Microphone) -->
+    <div class="controls">
+      <button id="micBtn" class="mic-button" title="Click to Speak">🎤</button>
+      <div id="micHint" class="mic-hint">Click Microphone to Speak</div>
+    </div>
+
+    <div class="input-divider">
+      <span>OR ASK VIA TEXT</span>
+    </div>
+
+    <!-- Text Query Row -->
+    <div class="text-input-row">
+      <input type="text" id="textInput" placeholder="Type your query about schemes here..." />
+      <button id="sendTextBtn">Send</button>
+    </div>
+
+    <!-- Displays -->
+    <div class="box-label">Your Input Query:</div>
+    <div id="sttOutput" class="output-box"><i>Transcribed voice or typed query will appear here...</i></div>
+
+    <div class="box-header">
+      <div class="box-label">PolicyPilot AI Response (Streaming Text):</div>
+      <button id="speakerBtn" class="speaker-btn">🔊 Listen (Realistic AI Voice)</button>
+    </div>
+    <div id="llmOutput" class="output-box response-box"><i>AI response text will stream word by word...</i></div>
+
+    <div class="latency-info">
+      <span id="sessionStatus">Status: Disconnected</span>
+      <span id="latencyStats">Latency: -- ms</span>
+    </div>
+  </div>
+
+  <script>
+    const WS_URL = "ws://127.0.0.1:8000/ws/voice";
+
+    let ws = null;
+    let audioQueue = [];
+    let isPlayingAudio = false;
+    let currentAudioElement = null;
+    let receivedSentenceBuffers = [];
+
+    let mediaStream = null;
+    let micSource = null;
+    let processor = null;
+    let audioSamples = [];
+    let isRecording = false;
+
+    // DOM Elements
+    const micBtn = document.getElementById("micBtn");
+    const micHint = document.getElementById("micHint");
+    const statusDot = document.getElementById("statusDot");
+    const sttOutput = document.getElementById("sttOutput");
+    const llmOutput = document.getElementById("llmOutput");
+    const sessionStatus = document.getElementById("sessionStatus");
+    const latencyStats = document.getElementById("latencyStats");
+    const voiceSelect = document.getElementById("voiceSelect");
+    const autoSpeakToggle = document.getElementById("autoSpeakToggle");
+    const textInput = document.getElementById("textInput");
+    const sendTextBtn = document.getElementById("sendTextBtn");
+    const speakerBtn = document.getElementById("speakerBtn");
+
+    // Audio Queue Player (Sentence level MP3 Blobs)
+    function handleIncomingAudioBuffer(arrayBuffer) {
+      receivedSentenceBuffers.push(arrayBuffer);
+      if (autoSpeakToggle.checked) {
+        audioQueue.push(arrayBuffer);
+        if (!isPlayingAudio) {
+          playNextAudioSentence();
+        }
+      }
+    }
+
+    function playNextAudioSentence() {
+      if (audioQueue.length === 0) {
+        isPlayingAudio = false;
+        currentAudioElement = null;
+        return;
+      }
+
+      isPlayingAudio = true;
+      const buffer = audioQueue.shift();
+      const blob = new Blob([buffer], { type: "audio/mp3" });
+      const url = URL.createObjectURL(blob);
+
+      currentAudioElement = new Audio(url);
+      currentAudioElement.play().then(() => {
+        // Sentence audio playing smoothly!
+      }).catch(err => {
+        console.error("Sentence playback error:", err);
+        playNextAudioSentence();
+      });
+
+      currentAudioElement.onended = () => {
+        URL.revokeObjectURL(url);
+        playNextAudioSentence();
+      };
+    }
+
+    function stopAllAudioPlayback() {
+      audioQueue = [];
+      isPlayingAudio = false;
+      if (currentAudioElement) {
+        currentAudioElement.pause();
+        currentAudioElement = null;
+      }
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    }
+
+    // Connect WebSocket
+    function connectWebSocket() {
+      ws = new WebSocket(WS_URL);
+      ws.binaryType = "arraybuffer";
+
+      ws.onopen = () => {
+        statusDot.className = "status-badge connected";
+        sessionStatus.innerText = "Status: Connected to Backend";
+        sendConfig();
+      };
+
+      ws.onmessage = (event) => {
+        if (typeof event.data === "string") {
+          const msg = JSON.parse(event.data);
+
+          if (msg.type === "connected") {
+            sessionStatus.innerText = "Connected (" + msg.session_id.slice(0, 8) + ")";
+          }
+          else if (msg.type === "transcript") {
+            sttOutput.innerText = msg.text;
+            llmOutput.innerText = "";
+            stopAllAudioPlayback();
+            receivedSentenceBuffers = [];
+          }
+          else if (msg.type === "response_start") {
+            llmOutput.innerText = "";
+            stopAllAudioPlayback();
+            receivedSentenceBuffers = [];
+          }
+          else if (msg.type === "response") {
+            // Real-time word-by-word streaming text!
+            llmOutput.innerText += msg.text;
+          }
+          else if (msg.type === "complete") {
+            latencyStats.innerText = `First Latency: ${msg.latency_ms} ms`;
+          }
+          else if (msg.type === "error") {
+            sessionStatus.innerText = `Error: ${msg.message}`;
+          }
+        } else if (event.data instanceof ArrayBuffer) {
+          // Received complete sentence binary MP3 audio frame!
+          handleIncomingAudioBuffer(event.data);
+        }
+      };
+
+      ws.onclose = () => {
+        statusDot.className = "status-badge";
+        sessionStatus.innerText = "Status: Disconnected. Reconnecting...";
+        setTimeout(connectWebSocket, 2000);
+      };
+    }
+
+    function sendConfig() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: "config",
+          voice: voiceSelect.value,
+          language: "en"
+        }));
+      }
+    }
+
+    voiceSelect.addEventListener("change", sendConfig);
+
+    // Manual Speaker Button (🔊 Listen) Trigger
+    speakerBtn.addEventListener("click", () => {
+      const textToSpeak = llmOutput.innerText.trim();
+      if (!textToSpeak) return;
+
+      stopAllAudioPlayback();
+
+      // If we have received sentence MP3 chunks from backend, replay them!
+      if (receivedSentenceBuffers.length > 0) {
+        audioQueue = [...receivedSentenceBuffers];
+        playNextAudioSentence();
+      } else {
+        // Fallback to high-quality browser Web Speech API
+        if ("speechSynthesis" in window) {
+          const utterance = new SpeechSynthesisUtterance(textToSpeak);
+          utterance.rate = 1.0;
+          const voices = window.speechSynthesis.getVoices();
+          const naturalVoice = voices.find(v => v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Enhanced"));
+          if (naturalVoice) utterance.voice = naturalVoice;
+          window.speechSynthesis.speak(utterance);
+        }
+      }
+    });
+
+    // Recording logic
+    async function startRecording() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        alert("WebSocket is not connected. Please ensure backend is running!");
+        return;
+      }
+
+      stopAllAudioPlayback();
+
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        micSource = audioCtx.createMediaStreamSource(mediaStream);
+        processor = audioCtx.createScriptProcessor(4096, 1, 1);
+        audioSamples = [];
+
+        processor.onaudioprocess = (e) => {
+          if (!isRecording) return;
+          const channelData = e.inputBuffer.getChannelData(0);
+          audioSamples.push(new Float32Array(channelData));
+        };
+
+        micSource.connect(processor);
+        processor.connect(audioCtx.destination);
+
+        isRecording = true;
+
+        micBtn.classList.add("recording");
+        statusDot.className = "status-badge recording";
+        micHint.innerText = "🔴 RECORDING... Click when Done Speaking!";
+        sttOutput.innerText = "Listening to voice...";
+        llmOutput.innerText = "";
+        receivedSentenceBuffers = [];
+      } catch (err) {
+        alert("Microphone error: " + err.message + "\nPlease check browser microphone permissions.");
+      }
+    }
+
+    function stopRecording() {
+      isRecording = false;
+
+      if (processor) { processor.disconnect(); processor = null; }
+      if (micSource) { micSource.disconnect(); micSource = null; }
+      if (mediaStream) { mediaStream.getTracks().forEach(track => track.stop()); mediaStream = null; }
+
+      if (audioSamples.length > 0 && ws && ws.readyState === WebSocket.OPEN) {
+        const wavArrayBuffer = encode16kHzWAV(audioSamples, 16000);
+        ws.send(wavArrayBuffer);
+        ws.send(JSON.stringify({ type: "end_of_speech" }));
+      }
+
+      micBtn.classList.remove("recording");
+      statusDot.className = "status-badge connected";
+      micHint.innerText = "Processing Speech...";
+    }
+
+    // WAV Encoder
+    function encode16kHzWAV(pcmChunks, inputSampleRate) {
+      let totalSamples = 0;
+      for (const chunk of pcmChunks) totalSamples += chunk.length;
+
+      const fullPCM = new Float32Array(totalSamples);
+      let offset = 0;
+      for (const chunk of pcmChunks) {
+        fullPCM.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      const targetSampleRate = 16000;
+      let samples16k = fullPCM;
+
+      if (inputSampleRate !== targetSampleRate) {
+        const ratio = inputSampleRate / targetSampleRate;
+        const newLength = Math.round(fullPCM.length / ratio);
+        samples16k = new Float32Array(newLength);
+        for (let i = 0; i < newLength; i++) {
+          const origIdx = Math.floor(i * ratio);
+          samples16k[i] = fullPCM[origIdx];
+        }
+      }
+
+      const buffer = new ArrayBuffer(44 + samples16k.length * 2);
+      const view = new DataView(buffer);
+
+      function writeString(view, offset, str) {
+        for (let i = 0; i < str.length; i++) {
+          view.setUint8(offset + i, str.charCodeAt(i));
+        }
+      }
+
+      writeString(view, 0, 'RIFF');
+      view.setUint32(4, 36 + samples16k.length * 2, true);
+      writeString(view, 8, 'WAVE');
+      writeString(view, 12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, targetSampleRate, true);
+      view.setUint32(28, targetSampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeString(view, 36, 'data');
+      view.setUint32(40, samples16k.length * 2, true);
+
+      let pcmIndex = 44;
+      for (let i = 0; i < samples16k.length; i++) {
+        const s = Math.max(-1, Math.min(1, samples16k[i]));
+        view.setInt16(pcmIndex, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        pcmIndex += 2;
+      }
+
+      return buffer;
+    }
+
+    // Send Text Query
+    function sendTextQuery() {
+      const text = textInput.value.trim();
+      if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+      stopAllAudioPlayback();
+
+      sttOutput.innerText = text;
+      llmOutput.innerText = "";
+      receivedSentenceBuffers = [];
+
+      ws.send(JSON.stringify({
+        type: "text_query",
+        text: text
+      }));
+
+      textInput.value = "";
+    }
+
+    sendTextBtn.addEventListener("click", sendTextQuery);
+    textInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendTextQuery();
+    });
+
+    micBtn.addEventListener("click", () => {
+      if (isRecording) {
+        stopRecording();
+      } else {
+        startRecording();
+      }
+    });
+
+    connectWebSocket();
+  </script>
+</body>
+</html>

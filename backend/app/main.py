@@ -2,6 +2,7 @@ from fastapi import FastAPI
 
 from app.api.routes.query import router as query_router
 from app.core.settings import settings
+from app.voice.websocket import router as voice_ws_router
 
 
 app = FastAPI(
@@ -18,9 +19,11 @@ app = FastAPI(
 # Routes
 # ============================================================
 
-app.include_router(
-    query_router,
-)
+# Existing text/query API
+app.include_router(query_router)
+
+# New streaming voice WebSocket
+app.include_router(voice_ws_router)
 
 
 # ============================================================
@@ -28,7 +31,7 @@ app.include_router(
 # ============================================================
 
 
-@app.get("/")
+@app.get("/", tags=["Health"])
 async def root():
     return {
         "application": settings.APP_NAME,
@@ -42,7 +45,7 @@ async def root():
 # ============================================================
 
 
-@app.get("/health")
+@app.get("/health", tags=["Health"])
 async def health():
     return {
         "status": "Healthy",

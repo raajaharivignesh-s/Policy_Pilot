@@ -1,11 +1,35 @@
 # ==========================================
-# Python
+# Virtual Environments
 # ==========================================
 
 venv/
+venvc/
+.venv/
+env/
+envs/
+**/venv/
+**/venvc/
+**/.venv/
+**/env/
+**/envs/
+
+# ==========================================
+# Python Cache & Artifacts
+# ==========================================
+
 **/__pycache__/
 *.pyc
+*.pyo
+*.pyd
 .pytest_cache/
+**/.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
 
 # ==========================================
 # Environment / Secrets
@@ -16,15 +40,21 @@ venv/
 !.env.example
 
 # ==========================================
-# Local Generated Storage
+# Local Generated Storage & Database
 # ==========================================
 
+storage/
+**/storage/
 backend/storage/
+*.db
+*.sqlite3
 
 # ==========================================
 # Logs
 # ==========================================
 
+logs/
+**/logs/
 backend/logs/
 *.log
 
@@ -33,16 +63,13 @@ backend/logs/
 # ==========================================
 
 node_modules/
+**/node_modules/
 
 # ==========================================
-# VS Code
+# IDE & System
 # ==========================================
 
 .vscode/
-
-# ==========================================
-# OS
-# ==========================================
-
+.idea/
 .DS_Store
 Thumbs.db
