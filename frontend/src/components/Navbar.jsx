@@ -13,13 +13,13 @@ export default function Navbar({ onOpenDashboard }) {
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Brand */}
         <a href="#" className="flex items-center gap-2.5 no-underline">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-600 to-accent-500 flex items-center justify-center text-white text-lg flex-shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FF6B00] to-[#FF5500] flex items-center justify-center text-white text-lg flex-shrink-0 shadow-sm">
             🏛️
           </div>
           <span className="font-heading font-bold text-xl text-gray-900">
-            Policy<span className="text-brand-600">Pilot</span>
+            Policy<span className="text-[#FF5500]">Pilot</span>
           </span>
-          <span className="hidden sm:inline-flex ml-1 text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200 px-2 py-0.5 rounded-full">
+          <span className="hidden sm:inline-flex ml-1 text-xs font-semibold bg-[#FFEFEA] text-[#FF6B00] border border-[#FFD8CC] px-2 py-0.5 rounded-full">
             AI
           </span>
         </a>

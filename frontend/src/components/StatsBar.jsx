@@ -11,7 +11,7 @@ export default function StatsBar() {
       <div className="max-w-7xl mx-auto flex flex-wrap justify-center gap-8 md:gap-16">
         {STATS.map(stat => (
           <div key={stat.label} className="text-center">
-            <p className="font-heading font-bold text-2xl text-brand-700">{stat.value}</p>
+            <p className="font-heading font-bold text-2xl text-[#FF6B00]">{stat.value}</p>
             <p className="text-xs text-gray-500 mt-0.5">{stat.label}</p>
           </div>
         ))}

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -10,9 +10,10 @@
     font-family: 'Inter', system-ui, sans-serif;
     background-color: #FAFAFA;
     color: #1A1A1A;
+    -webkit-font-smoothing: antialiased;
   }
-  h1, h2, h3, h4 { font-family: 'Outfit', sans-serif; }
-  .font-serif-title { font-family: 'Playfair Display', Georgia, serif; }
+  h1, h2, h3, h4 { font-family: 'Inter', system-ui, sans-serif; }
+  .font-serif-title { font-family: 'Inter', system-ui, sans-serif; }
 
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: #F5F5F5; }
@@ -33,17 +34,17 @@
   }
 
   .badge-eligible {
-    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold
            bg-emerald-50 text-emerald-800 border border-emerald-200;
   }
 
   .badge-ineligible {
-    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold
            bg-rose-50 text-rose-800 border border-rose-200;
   }
 
   .badge-insufficient {
-    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold
            bg-amber-50 text-amber-800 border border-amber-200;
   }
 }

@@ -2,7 +2,7 @@ export default function EligibilityCard({ eligibilityResults }) {
   if (!eligibilityResults || eligibilityResults.length === 0) return null;
 
   return (
-    <div className="card p-6 animate-fade-up">
+    <div className="bg-white border border-[#E6E4DF] rounded-2xl p-6 shadow-sm animate-fade-up">
       <div className="flex items-center gap-3 mb-4">
         <div className="w-9 h-9 rounded-xl bg-green-50 flex items-center justify-center text-lg">
           📋

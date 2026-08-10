@@ -68,6 +68,18 @@ export function useQuery() {
     setDoneSteps([]);
   };
 
+  // Rename a chat session
+  const renameChat = (id, newTitle) => {
+    if (!newTitle || !newTitle.trim()) return;
+    const updated = chats.map(c => {
+      if (c.id === id) {
+        return { ...c, title: newTitle.trim() };
+      }
+      return c;
+    });
+    saveChatsToStorage(updated);
+  };
+
   // Delete a chat session
   const deleteChat = (id, e) => {
     if (e) e.stopPropagation();
@@ -210,6 +222,7 @@ export function useQuery() {
     activeChatId,
     createNewChat,
     selectChat,
+    renameChat,
     deleteChat,
     clearAllChats,
     queryText,
