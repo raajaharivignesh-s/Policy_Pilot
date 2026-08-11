@@ -17,12 +17,27 @@ class EligibilityAgent:
         eligible
         not_eligible
         insufficient_information
+
+    Important:
+
+    - Uses only verified information.
+    - Never invents eligibility rules.
+    - Never assumes missing information.
+    - If no verified eligibility evidence exists,
+      returns insufficient_information.
     """
 
     VALID_STATUSES = {
         "eligible",
         "not_eligible",
         "insufficient_information",
+    }
+
+    ELIGIBILITY_SECTIONS = {
+        "Eligibility Criteria",
+        "Who Is Not Eligible",
+        "Eligibility",
+        "Eligibility Requirements",
     }
 
     SYSTEM_PROMPT = """
@@ -54,7 +69,7 @@ IMPORTANT DECISION RULES:
    insufficient_information
 
 2. If ANY explicit eligibility requirement is failed,
-   the status MUST be:
+   status MUST be:
 
    not_eligible
 
@@ -114,6 +129,180 @@ Required format:
     def __init__(self):
         self.llm_service = llm_service
 
+    # ==========================================================
+    # Helpers
+    # ==========================================================
+
+    def _get_scheme_name_from_query(
+        self,
+        query: str,
+    ) -> str:
+        """
+        Try to identify the named scheme from the user query.
+
+        This is intentionally lightweight.
+
+        It does not invent a scheme name.
+
+        It only extracts the text after common eligibility
+        phrases such as:
+
+            "Am I eligible for ..."
+            "Tell me whether I am eligible for ..."
+            "Can I apply for ..."
+        """
+
+        if not query:
+            return ""
+
+        normalized = query.strip()
+
+        phrases = [
+            "tell me whether i am eligible for",
+            "tell me if i am eligible for",
+            "am i eligible for",
+            "are you eligible for",
+            "is it possible for me to apply for",
+            "can i apply for",
+            "can i get",
+            "eligibility for",
+        ]
+
+        lowered = normalized.lower()
+
+        for phrase in phrases:
+
+            if phrase in lowered:
+
+                index = lowered.find(
+                    phrase
+                )
+
+                scheme_name = normalized[
+                    index + len(phrase):
+                ]
+
+                scheme_name = (
+                    scheme_name
+                    .strip()
+                    .rstrip("?")
+                    .strip()
+                )
+
+                if scheme_name:
+                    return scheme_name
+
+        return ""
+
+    def _get_scheme_name_from_verified_information(
+        self,
+        verified_information: list[Any],
+    ) -> str:
+        """
+        Return the first usable scheme name from verified
+        information.
+
+        Only verified information is considered.
+        """
+
+        for item in verified_information:
+
+            if not isinstance(
+                item,
+                dict,
+            ):
+                continue
+
+            if item.get(
+                "supported"
+            ) is not True:
+                continue
+
+            scheme_name = str(
+                item.get(
+                    "scheme_name",
+                    "",
+                )
+            ).strip()
+
+            if scheme_name:
+                return scheme_name
+
+        return ""
+
+    def _build_missing_information_from_profile(
+        self,
+        user_profile: dict[str, Any],
+    ) -> list[str]:
+        """
+        Build generic information requests when the system
+        knows that eligibility cannot yet be determined but
+        has no explicit eligibility rules to compare.
+
+        These are framed as information requests, NOT as
+        confirmed government eligibility requirements.
+
+        This distinction is important for safety.
+
+        We do not claim that the scheme officially requires
+        every field below.
+
+        We only ask the citizen for useful profile details
+        that can help perform a later eligibility assessment.
+        """
+
+        if not isinstance(
+            user_profile,
+            dict,
+        ):
+            user_profile = {}
+
+        missing_information = []
+
+        if not user_profile.get(
+            "state"
+        ):
+            missing_information.append(
+                "Your state"
+            )
+
+        if not user_profile.get(
+            "district"
+        ):
+            missing_information.append(
+                "Your district"
+            )
+
+        if not user_profile.get(
+            "occupation"
+        ):
+            missing_information.append(
+                "Your occupation"
+            )
+
+        if (
+            "land_owner"
+            not in user_profile
+            and "land_acres"
+            not in user_profile
+        ):
+            missing_information.append(
+                "Whether you own or legally cultivate agricultural land"
+            )
+
+        if not user_profile.get(
+            "land_acres"
+        ):
+            missing_information.append(
+                "Your approximate agricultural land or cultivation details"
+            )
+
+        return missing_information
+
+    # ==========================================================
+    # Main Method
+    # ==========================================================
+
     def run(
         self,
         state: PolicyPilotState,
@@ -124,35 +313,146 @@ Required format:
             {},
         )
 
+        if not isinstance(
+            user_profile,
+            dict,
+        ):
+            user_profile = {}
+
         verified_information = state.get(
             "verified_information",
             [],
         )
 
-        # --------------------------------------------------
-        # No verified information
-        # --------------------------------------------------
+        if not isinstance(
+            verified_information,
+            list,
+        ):
+            verified_information = []
 
-        if not verified_information:
+        query = state.get(
+            "query",
+            "",
+        ).strip()
+
+        intent = state.get(
+            "intent",
+            "",
+        ).strip()
+
+        # ======================================================
+        # Only eligibility queries should be evaluated here.
+        # ======================================================
+
+        if intent != "eligibility_check":
+
             return {
                 "eligibility_results": [],
             }
 
-        # --------------------------------------------------
-        # Build evidence context
-        # --------------------------------------------------
+        # ======================================================
+        # Identify scheme name.
+        # ======================================================
+
+        scheme_name = (
+            self._get_scheme_name_from_verified_information(
+                verified_information
+            )
+        )
+
+        if not scheme_name:
+
+            scheme_name = (
+                self._get_scheme_name_from_query(
+                    query
+                )
+            )
+
+        # ======================================================
+        # Find supported verified information.
+        # ======================================================
+
+        supported_information = []
+
+        for item in verified_information:
+
+            if not isinstance(
+                item,
+                dict,
+            ):
+                continue
+
+            if item.get(
+                "supported"
+            ) is not True:
+                continue
+
+            supported_information.append(
+                item
+            )
+
+        # ======================================================
+        # IMPORTANT:
+        #
+        # If no verified information exists at all,
+        # do NOT return [].
+        #
+        # Return an explicit insufficient_information result
+        # so that FinalResponseAgent can ask the citizen for
+        # more details.
+        # ======================================================
+
+        if not supported_information:
+
+            missing_information = (
+                self._build_missing_information_from_profile(
+                    user_profile
+                )
+            )
+
+            if not missing_information:
+
+                missing_information = [
+                    (
+                        "The scheme-specific eligibility "
+                        "information needed to assess your case"
+                    )
+                ]
+
+            return {
+                "eligibility_results": [
+                    {
+                        "scheme_name": scheme_name,
+                        "status": (
+                            "insufficient_information"
+                        ),
+                        "matched_rules": [],
+                        "failed_rules": [],
+                        "missing_information": (
+                            missing_information
+                        ),
+                        "reason": (
+                            "Eligibility cannot be confirmed "
+                            "because sufficiently verified "
+                            "scheme-specific eligibility "
+                            "information is not available."
+                        ),
+                    }
+                ],
+            }
+
+        # ======================================================
+        # Build evidence context.
+        # ======================================================
 
         evidence_parts = []
 
         for index, item in enumerate(
-            verified_information,
+            supported_information,
             start=1,
         ):
 
-            if item.get("supported") is False:
-                continue
-
-            scheme_name = item.get(
+            item_scheme_name = item.get(
                 "scheme_name",
                 "Unknown",
             )
@@ -172,12 +472,20 @@ Required format:
                 "",
             )
 
+            # --------------------------------------------------
+            # Only eligibility-related evidence should be used
+            # for eligibility decisions.
+            # --------------------------------------------------
+
+            if section not in self.ELIGIBILITY_SECTIONS:
+                continue
+
             evidence_parts.append(
                 f"""
 EVIDENCE {index}
 
 Scheme:
-{scheme_name}
+{item_scheme_name}
 
 Section:
 {section}
@@ -190,18 +498,56 @@ Verification Reason:
 """.strip()
             )
 
+        # ======================================================
+        # No explicit eligibility evidence.
+        # ======================================================
+
         if not evidence_parts:
+
+            missing_information = (
+                self._build_missing_information_from_profile(
+                    user_profile
+                )
+            )
+
+            if not missing_information:
+
+                missing_information = [
+                    (
+                        "The scheme-specific eligibility "
+                        "information needed to assess your case"
+                    )
+                ]
+
             return {
-                "eligibility_results": [],
+                "eligibility_results": [
+                    {
+                        "scheme_name": scheme_name,
+                        "status": (
+                            "insufficient_information"
+                        ),
+                        "matched_rules": [],
+                        "failed_rules": [],
+                        "missing_information": (
+                            missing_information
+                        ),
+                        "reason": (
+                            "The available verified information "
+                            "does not contain explicit eligibility "
+                            "criteria sufficient to determine "
+                            "eligibility."
+                        ),
+                    }
+                ],
             }
 
         evidence_context = "\n\n".join(
             evidence_parts
         )
 
-        # --------------------------------------------------
-        # Build LLM prompt
-        # --------------------------------------------------
+        # ======================================================
+        # Build LLM prompt.
+        # ======================================================
 
         user_prompt = f"""
 CITIZEN PROFILE:
@@ -255,20 +601,21 @@ Return ONLY the required JSON.
             },
         ]
 
-        # --------------------------------------------------
-        # Call LLM
-        # --------------------------------------------------
+        # ======================================================
+        # Call LLM.
+        # ======================================================
 
         response = self.llm_service.generate(
             messages=messages,
             temperature=0.0,
         )
 
-        # --------------------------------------------------
-        # Parse response
-        # --------------------------------------------------
+        # ======================================================
+        # Parse response.
+        # ======================================================
 
         try:
+
             data: dict[str, Any] = json.loads(
                 response
             )
@@ -277,8 +624,29 @@ Return ONLY the required JSON.
             json.JSONDecodeError,
             TypeError,
         ):
+
             return {
-                "eligibility_results": [],
+                "eligibility_results": [
+                    {
+                        "scheme_name": scheme_name,
+                        "status": (
+                            "insufficient_information"
+                        ),
+                        "matched_rules": [],
+                        "failed_rules": [],
+                        "missing_information": [
+                            (
+                                "Additional information "
+                                "required to evaluate eligibility"
+                            )
+                        ],
+                        "reason": (
+                            "Eligibility could not be "
+                            "determined from the verified "
+                            "evidence."
+                        ),
+                    }
+                ],
                 "errors": [
                     "Eligibility Agent returned invalid JSON."
                 ],
@@ -293,16 +661,11 @@ Return ONLY the required JSON.
             results,
             list,
         ):
-            return {
-                "eligibility_results": [],
-                "errors": [
-                    "Eligibility results must be a list."
-                ],
-            }
+            results = []
 
-        # --------------------------------------------------
-        # Validate and enforce eligibility status
-        # --------------------------------------------------
+        # ======================================================
+        # Validate and enforce eligibility status.
+        # ======================================================
 
         validated_results = []
 
@@ -314,13 +677,17 @@ Return ONLY the required JSON.
             ):
                 continue
 
-            scheme_name = result.get(
-                "scheme_name",
-                "",
-            )
+            result_scheme_name = str(
+                result.get(
+                    "scheme_name",
+                    scheme_name,
+                )
+            ).strip()
 
-            if not scheme_name:
-                continue
+            if not result_scheme_name:
+                result_scheme_name = (
+                    scheme_name
+                )
 
             status = result.get(
                 "status",
@@ -348,7 +715,7 @@ Return ONLY the required JSON.
             )
 
             # --------------------------------------------------
-            # Normalize fields
+            # Normalize fields.
             # --------------------------------------------------
 
             if not isinstance(
@@ -378,8 +745,8 @@ Return ONLY the required JSON.
             # --------------------------------------------------
             # HARD SAFETY RULE 1
             #
-            # Missing required information means the
-            # citizen cannot be confirmed eligible.
+            # Missing required information means eligibility
+            # cannot be confirmed.
             # --------------------------------------------------
 
             if missing_information:
@@ -414,13 +781,8 @@ Return ONLY the required JSON.
             # --------------------------------------------------
             # HARD SAFETY RULE 3
             #
-            # Only allow eligible when there are:
-            #
-            # - no missing requirements
-            # - no failed requirements
-            # - at least one matched rule
-            #
-            # Otherwise force insufficient information.
+            # Eligible requires at least one explicit
+            # matched rule and no missing/failed rules.
             # --------------------------------------------------
 
             elif (
@@ -439,7 +801,7 @@ Return ONLY the required JSON.
                 )
 
             # --------------------------------------------------
-            # Normalize invalid status
+            # Normalize invalid status.
             # --------------------------------------------------
 
             elif status not in self.VALID_STATUSES:
@@ -455,7 +817,7 @@ Return ONLY the required JSON.
 
             validated_results.append(
                 {
-                    "scheme_name": scheme_name,
+                    "scheme_name": result_scheme_name,
                     "status": status,
                     "matched_rules": matched_rules,
                     "failed_rules": failed_rules,
@@ -465,6 +827,36 @@ Return ONLY the required JSON.
                     "reason": reason,
                 }
             )
+
+        # ======================================================
+        # LLM returned no usable result.
+        # ======================================================
+
+        if not validated_results:
+
+            return {
+                "eligibility_results": [
+                    {
+                        "scheme_name": scheme_name,
+                        "status": (
+                            "insufficient_information"
+                        ),
+                        "matched_rules": [],
+                        "failed_rules": [],
+                        "missing_information": [
+                            (
+                                "Additional information "
+                                "required to evaluate eligibility"
+                            )
+                        ],
+                        "reason": (
+                            "Eligibility could not be "
+                            "determined from the supplied "
+                            "verified evidence."
+                        ),
+                    }
+                ],
+            }
 
         return {
             "eligibility_results": validated_results,
