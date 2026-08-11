@@ -1,5 +1,5 @@
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -42,6 +42,15 @@ class QueryRequest(BaseModel):
         ),
     )
 
+    conversation_id: str | None = Field(
+        default=None,
+        description=(
+            "Conversation identifier used to restore "
+            "previous LangGraph state. Reuse the same "
+            "conversation_id for follow-up questions."
+        ),
+    )
+
 
 # ============================================================
 # Response Model
@@ -51,6 +60,8 @@ class QueryResponse(BaseModel):
     """
     Response returned by the complete PolicyPilot workflow.
     """
+
+    conversation_id: str
 
     query: str
 
@@ -91,6 +102,10 @@ async def process_query(
     """
     Process a citizen's query through the complete
     PolicyPilot LangGraph workflow.
+
+    The same conversation_id must be reused for
+    follow-up questions so LangGraph can restore
+    the previous workflow state.
     """
 
     # --------------------------------------------------------
@@ -100,9 +115,32 @@ async def process_query(
     query = request.query.strip()
 
     if not query:
+
         raise HTTPException(
             status_code=400,
             detail="Query cannot be empty.",
+        )
+
+    # --------------------------------------------------------
+    # Create or reuse conversation ID
+    # --------------------------------------------------------
+
+    if request.conversation_id:
+
+        conversation_id = (
+            request.conversation_id.strip()
+        )
+
+        if not conversation_id:
+
+            conversation_id = str(
+                uuid4()
+            )
+
+    else:
+
+        conversation_id = str(
+            uuid4()
         )
 
     # --------------------------------------------------------
@@ -114,15 +152,20 @@ async def process_query(
     if request.user_id:
 
         try:
-            user_uuid = UUID(request.user_id)
+
+            user_uuid = UUID(
+                request.user_id
+            )
 
         except ValueError as exc:
+
             raise HTTPException(
                 status_code=400,
                 detail="Invalid user_id.",
             ) from exc
 
         try:
+
             database_profile = (
                 profile_service.get_profile(
                     user_uuid
@@ -130,15 +173,21 @@ async def process_query(
             )
 
         except Exception as exc:
+
             raise HTTPException(
                 status_code=500,
-                detail="Failed to load citizen profile.",
+                detail=(
+                    "Failed to load citizen profile."
+                ),
             ) from exc
 
         if database_profile is None:
+
             raise HTTPException(
                 status_code=404,
-                detail="Citizen profile not found.",
+                detail=(
+                    "Citizen profile not found."
+                ),
             )
 
         user_profile = database_profile
@@ -153,20 +202,40 @@ async def process_query(
     }
 
     # --------------------------------------------------------
+    # LangGraph configuration
+    #
+    # The thread_id identifies the conversation.
+    #
+    # Reusing the same thread_id allows LangGraph to
+    # restore the previous checkpoint.
+    # --------------------------------------------------------
+
+    config = {
+        "configurable": {
+            "thread_id": conversation_id,
+        }
+    }
+
+    # --------------------------------------------------------
     # Execute complete LangGraph workflow
     # --------------------------------------------------------
 
     try:
 
-        result = policy_pilot_workflow.invoke(
-            initial_state
+        result = (
+            policy_pilot_workflow.invoke(
+                initial_state,
+                config=config,
+            )
         )
 
     except Exception as exc:
 
         raise HTTPException(
             status_code=500,
-            detail="Workflow execution failed.",
+            detail=(
+                "Workflow execution failed."
+            ),
         ) from exc
 
     # --------------------------------------------------------
@@ -177,9 +246,12 @@ async def process_query(
         result,
         dict,
     ):
+
         raise HTTPException(
             status_code=500,
-            detail="Workflow returned an invalid response.",
+            detail=(
+                "Workflow returned an invalid response."
+            ),
         )
 
     # --------------------------------------------------------
@@ -187,50 +259,63 @@ async def process_query(
     # --------------------------------------------------------
 
     return QueryResponse(
+        conversation_id=conversation_id,
+
         query=result.get(
             "query",
             query,
         ),
+
         intent=result.get(
             "intent",
             "",
         ),
+
         domain=result.get(
             "domain",
             "",
         ),
+
         retrieved_documents=result.get(
             "retrieved_documents",
             [],
         ),
+
         verified_information=result.get(
             "verified_information",
             [],
         ),
+
         eligibility_results=result.get(
             "eligibility_results",
             [],
         ),
+
         recommendations=result.get(
             "recommendations",
             [],
         ),
+
         required_documents=result.get(
             "required_documents",
             [],
         ),
+
         final_response=result.get(
             "final_response",
             "",
         ),
+
         needs_clarification=result.get(
             "needs_clarification",
             False,
         ),
+
         clarification_question=result.get(
             "clarification_question",
             "",
         ),
+
         errors=result.get(
             "errors",
             [],
