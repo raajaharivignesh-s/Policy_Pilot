@@ -47,7 +47,7 @@ export default function HowItWorksSection() {
     <section id="how-it-works" className="py-20 px-6 bg-white border-t border-gray-200">
       <div className="max-w-6xl mx-auto">
         <div className="text-center max-w-2xl mx-auto mb-16">
-          <span className="section-label mb-2">Architecture</span>
+          <span className="text-xs font-semibold uppercase tracking-wider text-[#FF6B00] bg-[#FFEFEA] px-3 py-1 rounded-full mb-2 inline-block">Architecture</span>
           <h2 className="font-heading font-bold text-3xl md:text-4xl text-gray-900 mb-4">
             How PolicyPilot Works
           </h2>
@@ -61,9 +61,9 @@ export default function HowItWorksSection() {
           {STEPS.map((step) => (
             <div
               key={step.num}
-              className="relative card p-8 text-center hover:-translate-y-1.5 transition-all duration-300 hover:shadow-lg border-gray-200"
+              className="relative bg-white rounded-2xl p-8 text-center hover:-translate-y-1.5 transition-all duration-300 hover:shadow-lg border border-gray-200"
             >
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center">
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-[#FF5500] text-white text-xs font-bold flex items-center justify-center">
                 {step.num}
               </div>
               <div className="text-4xl mb-4 mt-2">{step.emoji}</div>
@@ -77,7 +77,7 @@ export default function HowItWorksSection() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {FEATURES.map((feat) => (
             <div key={feat.title} className="p-4 rounded-xl bg-gray-50 border border-gray-200 flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center text-lg flex-shrink-0">
+              <div className="w-10 h-10 rounded-lg bg-[#FFEFEA] text-[#FF6B00] flex items-center justify-center text-lg flex-shrink-0">
                 {feat.icon}
               </div>
               <div>

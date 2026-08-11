@@ -5,7 +5,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pb-8 border-b border-gray-800">
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-brand-600 text-white flex items-center justify-center text-sm font-bold">
+              <div className="w-7 h-7 rounded-lg bg-[#FF5500] text-white flex items-center justify-center text-sm font-bold">
                 🏛️
               </div>
               <span className="font-heading font-bold text-lg text-white">PolicyPilot AI</span>
@@ -39,7 +39,7 @@ export default function Footer() {
         <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-gray-500 gap-2">
           <p>© {new Date().getFullYear()} PolicyPilot AI Capstone Project. All rights reserved.</p>
           <div className="flex gap-4">
-            <a href="#query-section" className="hover:text-gray-300 transition-colors">Top ▲</a>
+            <a href="#" className="hover:text-gray-300 transition-colors">Top ▲</a>
           </div>
         </div>
       </div>

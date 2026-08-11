@@ -2,8 +2,16 @@ import FinalResponseCard from './FinalResponseCard';
 import RecommendationsCard from './RecommendationsCard';
 import EligibilityCard from './EligibilityCard';
 import DocumentsCard from './DocumentsCard';
+import LogoMark from './LogoMark';
 
-export default function ChatMessage({ message }) {
+const IconWarn = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+    <path d="M12 9v4"/><path d="M12 17h.01"/>
+  </svg>
+);
+
+export default function ChatMessage({ message, onRerun }) {
   const isUser = message.sender === 'user';
 
   if (isUser) {
@@ -24,15 +32,16 @@ export default function ChatMessage({ message }) {
 
   return (
     <div className="flex items-start gap-4 max-w-4xl animate-fade-up">
-      <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center text-base shadow-sm flex-shrink-0 mt-1">
-        🧭
+      {/* AI avatar — orange star to match brand */}
+      <div className="w-9 h-9 rounded-2xl  text-white flex items-center justify-center text-base shadow-sm flex-shrink-0 mt-1 select-none">
+        <LogoMark size={24} />
       </div>
 
       <div className="flex-1 space-y-4 min-w-0">
         {/* Error message */}
         {error && (
           <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-start gap-3">
-            <span className="text-base">⚠️</span>
+            <IconWarn />
             <div>
               <h4 className="font-bold mb-1">Execution Error</h4>
               <p>{error}</p>
@@ -43,7 +52,7 @@ export default function ChatMessage({ message }) {
         {/* AI Result Cards */}
         {data && (
           <div className="space-y-4">
-            <FinalResponseCard data={data} />
+            <FinalResponseCard data={data} onRerun={onRerun} />
             <RecommendationsCard recommendations={data.recommendations} />
             <EligibilityCard eligibilityResults={data.eligibility_results} />
             <DocumentsCard requiredDocuments={data.required_documents} />
