@@ -61,10 +61,24 @@ function renderInlineBold(text) {
   return elements.length > 0 ? elements : text;
 }
 
+// Remove lines that contain markdown links or bare URLs — these are shown in the Recommendations card
+function stripLinkLines(text) {
+  if (!text) return text;
+  const mdLinkRegex = /\[.+?\]\(https?:\/\/.+?\)/;
+  const bareUrlRegex = /https?:\/\/\S+/;
+  return text
+    .split('\n')
+    .filter((line) => !mdLinkRegex.test(line) && !bareUrlRegex.test(line))
+    .join('\n')
+    // Clean up heading lines that become empty after link removal
+    .replace(/^[-*]?\s*$\n/gm, '\n');
+}
+
 function formatResponseText(text) {
   if (!text) return null;
+  const cleaned = stripLinkLines(text);
 
-  return text.split('\n').map((line, index) => {
+  return cleaned.split('\n').map((line, index) => {
     const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
 
     if (headingMatch) {
