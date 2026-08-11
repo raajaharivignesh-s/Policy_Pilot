@@ -19,7 +19,12 @@ class VerificationAgent:
     - source trust level
     - source trust score
 
-    The agent does not create new facts.
+    The agent may extract a scheme name only when the
+    supplied evidence itself clearly identifies it.
+
+    URLs are optional.
+
+    The agent never generates or guesses URLs.
     """
 
     SYSTEM_PROMPT = """
@@ -48,8 +53,15 @@ Unknown, private, aggregator, social media, or user-generated
 source. It cannot independently establish that a government
 scheme officially exists.
 
-For each retrieved document, determine whether its content
-actually provides useful evidence for the user's question.
+For EVERY retrieved document, return exactly one verification
+entry.
+
+Even when a document does NOT support the user's question,
+you MUST still return an entry for that document with:
+
+"supported": false
+
+Do not omit documents from the verification result.
 
 Return ONLY valid JSON in this exact format:
 
@@ -58,6 +70,8 @@ Return ONLY valid JSON in this exact format:
         {
             "document_index": 1,
             "supported": true,
+            "scheme_name": "Exact scheme name from the evidence",
+            "section": "Exact section from the evidence if identifiable",
             "reason": "short explanation"
         }
     ]
@@ -65,21 +79,57 @@ Return ONLY valid JSON in this exact format:
 
 Rules:
 
+- Return exactly one result for every supplied DOCUMENT.
 - document_index must refer to the DOCUMENT number provided.
 - supported must be either true or false.
 - Do not invent document indexes.
-- Do not invent scheme names.
-- Do not invent sections.
+
+Scheme name rules:
+
+- A scheme_name may be provided ONLY when the supplied
+  document title, content, or metadata explicitly identifies
+  that scheme.
+- Use the exact scheme name appearing in the supplied evidence.
+- Do not create, infer, expand, or guess a scheme name.
+- Do not infer a scheme name from the URL.
+- Do not infer a scheme name merely because the document
+  belongs to an agriculture, education, healthcare, or other
+  government department.
+- If no specific scheme can be safely identified from the
+  supplied evidence, return an empty string for scheme_name.
+- A general government department page may support a general
+  government-information claim, but do not assign an arbitrary
+  scheme name to it.
+
+Section rules:
+
+- A section may be provided only when it is explicitly
+  identifiable from the supplied evidence.
+- If no specific section is identifiable, return an empty
+  string for section.
+
+Evidence rules:
+
 - Do not add facts that are absent from the retrieved document.
-- Do not treat a LOW trust source as authoritative evidence
-  for an official government scheme.
-- A MEDIUM trust source may provide supporting information,
-  but it must not be described as an official government source.
-- A HIGH trust source may provide authoritative support when
-  its content directly supports the question.
 - If the document does not actually support the question,
   mark supported as false.
 - Keep the reason short.
+
+Trust rules:
+
+- Do not treat a LOW trust source as authoritative evidence
+  for an official government scheme.
+- A MEDIUM trust source may provide supporting information,
+  but it must not be described as an official government
+  source.
+- A HIGH trust source may provide authoritative support when
+  its content directly supports the question.
+
+Important:
+
+A document can be returned with supported=false.
+
+Never omit a document merely because it is unsupported.
 """.strip()
 
     def __init__(self):
@@ -190,8 +240,27 @@ RETRIEVED INFORMATION:
 
 {context}
 
-Evaluate which DOCUMENTS actually provide useful
-supporting evidence for answering the question.
+Evaluate EVERY DOCUMENT.
+
+Return exactly one verification result for every document.
+
+For each supported document, identify a scheme name only
+when that exact scheme is explicitly identifiable in the
+provided title, metadata, or content.
+
+Do not infer a scheme name from the URL.
+
+Do not infer a scheme name merely because the document
+belongs to an agriculture, education, healthcare, or other
+government department.
+
+If the document does not support the question, return:
+
+"supported": false
+
+for that document.
+
+Do not omit unsupported documents.
 
 Pay particular attention to the source trust level.
 
@@ -333,15 +402,143 @@ because a low-trust website mentions it.
                 source_type == "knowledge_base",
             )
 
-            scheme_name = metadata.get(
+            # --------------------------------------------------
+            # Scheme and section from original metadata
+            # --------------------------------------------------
+
+            metadata_scheme_name = metadata.get(
                 "scheme_name",
                 "",
             )
 
-            section = metadata.get(
+            metadata_section = metadata.get(
                 "section",
                 "",
             )
+
+            if not isinstance(
+                metadata_scheme_name,
+                str,
+            ):
+                metadata_scheme_name = ""
+
+            if not isinstance(
+                metadata_section,
+                str,
+            ):
+                metadata_section = ""
+
+            metadata_scheme_name = (
+                metadata_scheme_name.strip()
+            )
+
+            metadata_section = (
+                metadata_section.strip()
+            )
+
+            # --------------------------------------------------
+            # Scheme and section returned by verifier
+            # --------------------------------------------------
+
+            candidate_scheme_name = item.get(
+                "scheme_name",
+                "",
+            )
+
+            candidate_section = item.get(
+                "section",
+                "",
+            )
+
+            if not isinstance(
+                candidate_scheme_name,
+                str,
+            ):
+                candidate_scheme_name = ""
+
+            if not isinstance(
+                candidate_section,
+                str,
+            ):
+                candidate_section = ""
+
+            candidate_scheme_name = (
+                candidate_scheme_name.strip()
+            )
+
+            candidate_section = (
+                candidate_section.strip()
+            )
+
+            # --------------------------------------------------
+            # Determine scheme name safely
+            # --------------------------------------------------
+
+            scheme_name = ""
+
+            if metadata_scheme_name:
+
+                scheme_name = metadata_scheme_name
+
+            elif candidate_scheme_name:
+
+                evidence_text = (
+                    source_title
+                    + "\n"
+                    + source_document.get(
+                        "text",
+                        "",
+                    )
+                )
+
+                normalized_evidence = (
+                    evidence_text.casefold()
+                )
+
+                normalized_candidate = (
+                    candidate_scheme_name.casefold()
+                )
+
+                # The verifier may only use a scheme name
+                # that actually appears in the supplied evidence.
+                if normalized_candidate in normalized_evidence:
+                    scheme_name = candidate_scheme_name
+
+            # --------------------------------------------------
+            # Determine section safely
+            # --------------------------------------------------
+
+            section = ""
+
+            if metadata_section:
+
+                section = metadata_section
+
+            elif candidate_section:
+
+                evidence_text = (
+                    source_title
+                    + "\n"
+                    + source_document.get(
+                        "text",
+                        "",
+                    )
+                )
+
+                normalized_evidence = (
+                    evidence_text.casefold()
+                )
+
+                normalized_section = (
+                    candidate_section.casefold()
+                )
+
+                if normalized_section in normalized_evidence:
+                    section = candidate_section
+
+            # --------------------------------------------------
+            # Reason
+            # --------------------------------------------------
 
             reason = item.get(
                 "reason",

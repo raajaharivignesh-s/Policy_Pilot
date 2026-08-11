@@ -19,18 +19,13 @@ class ResearchAgent:
     Current/latest queries are routed to Tavily because
     ChromaDB contains the project's stored knowledge and
     may not contain the latest information.
+
+    Important:
+        Web URLs are preserved from Tavily results.
+        No URL is generated or guessed by the system.
     """
 
     MAX_CHROMA_DISTANCE = 1.25
-
-    TRUSTED_DOMAINS = {
-        "gov.in",
-        "nic.in",
-        "mygov.in",
-        "tn.gov.in",
-        "pmkisan.gov.in",
-        "pmfby.gov.in",
-    }
 
     CURRENT_KEYWORDS = {
         "latest",
@@ -86,8 +81,14 @@ class ResearchAgent:
         url: str,
     ) -> bool:
         """
-        Determine whether a URL belongs to a preferred
+        Determine whether a URL belongs to an official
         government domain.
+
+        This method is retained for compatibility with
+        existing code/tests.
+
+        Actual web-search trust information comes from
+        SearchService / SourceTrustService.
         """
 
         if not url:
@@ -107,7 +108,16 @@ class ResearchAgent:
         if hostname.startswith("www."):
             hostname = hostname[4:]
 
-        for trusted_domain in self.TRUSTED_DOMAINS:
+        trusted_domains = {
+            "gov.in",
+            "nic.in",
+            "mygov.in",
+            "gov",
+            "pmkisan.gov.in",
+            "pmfby.gov.in",
+        }
+
+        for trusted_domain in trusted_domains:
 
             if (
                 hostname == trusted_domain
@@ -131,6 +141,11 @@ class ResearchAgent:
         """
         Search Tavily and convert web results into the same
         structure used by ChromaDB.
+
+        Important:
+            The URL is taken directly from Tavily.
+
+            The system never constructs or guesses a URL.
         """
 
         if not self.search_service.is_available():
@@ -141,7 +156,20 @@ class ResearchAgent:
         if domain and domain != "general":
             search_query = (
                 f"{query} {domain} "
-                "government official scheme"
+                "official government scheme "
+                "scheme portal "
+                "scheme application "
+                "government notification "
+                "site:gov.in OR site:nic.in OR site:tn.gov.in"
+            )
+        else:
+            search_query = (
+                f"{query} "
+                "official government scheme "
+                "scheme portal "
+                "scheme application "
+                "government notification "
+                "site:gov.in OR site:nic.in"
             )
 
         results = self.search_service.search(
@@ -176,10 +204,31 @@ class ResearchAgent:
             if not content:
                 continue
 
-            trusted_source = (
-                self._is_trusted_source(
-                    url
-                )
+            # SearchService already evaluates the URL
+            # using SourceTrustService.
+            trusted_source = result.get(
+                "trusted_source",
+                False,
+            )
+
+            trust_level = result.get(
+                "trust_level",
+                "low",
+            )
+
+            trust_score = result.get(
+                "trust_score",
+                0.0,
+            )
+
+            source_domain = result.get(
+                "source_domain",
+                "",
+            )
+
+            trust_reason = result.get(
+                "trust_reason",
+                "",
             )
 
             web_documents.append(
@@ -193,9 +242,15 @@ class ResearchAgent:
                             domain
                             or "general"
                         ),
+
+                        # Source trust
                         "trusted_source": (
                             trusted_source
                         ),
+                        "trust_level": trust_level,
+                        "trust_score": trust_score,
+                        "source_domain": source_domain,
+                        "trust_reason": trust_reason,
                     },
                     "distance": (
                         1.0 - score
@@ -208,7 +263,7 @@ class ResearchAgent:
                 }
             )
 
-        # Prefer official government sources.
+        # Prefer official government sources first.
         web_documents.sort(
             key=lambda document: (
                 not document[

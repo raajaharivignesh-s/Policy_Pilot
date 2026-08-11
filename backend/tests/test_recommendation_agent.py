@@ -130,3 +130,90 @@ def test_empty_verified_information():
     result = recommendation_agent.run(state)
 
     assert result["recommendations"] == []
+
+
+# ==========================================================
+# OFFICIAL URL TESTS
+# ==========================================================
+
+
+def test_official_government_url_is_included():
+
+    state = {
+        "verified_information": [
+            {
+                "scheme_name": "PM-KISAN",
+                "section": "Benefits",
+                "supported": True,
+                "reason": (
+                    "Provides financial assistance "
+                    "to eligible farmers."
+                ),
+                "source_url": (
+                    "https://pmkisan.gov.in/"
+                ),
+            }
+        ]
+    }
+
+    result = recommendation_agent.run(state)
+
+    print("\n========================================")
+    print("OFFICIAL URL TEST")
+    print("========================================")
+    print(result["recommendations"])
+
+    assert len(result["recommendations"]) == 1
+
+    recommendation = result["recommendations"][0]
+
+    assert (
+        recommendation["scheme_name"]
+        == "PM-KISAN"
+    )
+
+    assert (
+        recommendation["official_url"]
+        == "https://pmkisan.gov.in/"
+    )
+
+
+def test_non_government_url_is_not_exposed_as_official():
+
+    state = {
+        "verified_information": [
+            {
+                "scheme_name": "PM-KISAN",
+                "section": "Benefits",
+                "supported": True,
+                "reason": (
+                    "Provides financial assistance "
+                    "to eligible farmers."
+                ),
+                "source_url": (
+                    "https://indianexpress.com/"
+                ),
+            }
+        ]
+    }
+
+    result = recommendation_agent.run(state)
+
+    print("\n========================================")
+    print("NON-GOVERNMENT URL TEST")
+    print("========================================")
+    print(result["recommendations"])
+
+    assert len(result["recommendations"]) == 1
+
+    recommendation = result["recommendations"][0]
+
+    assert (
+        recommendation["scheme_name"]
+        == "PM-KISAN"
+    )
+
+    assert (
+        recommendation["official_url"]
+        is None
+    )
