@@ -115,7 +115,7 @@ export default function Sidebar({
             }}
             className="w-full py-2.5 px-4 bg-[#FFF8F5] hover:bg-[#FFF2EC] border border-[#FFD8CC] text-[#FF6B00] font-semibold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
           >
-            <span className="text-base font-normal">+</span> New Chat
+            <span className="text-base font-normal  ">+</span> New Chat
           </button>
         </div>
 

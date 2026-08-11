@@ -1,5 +1,9 @@
 export default function EligibilityCard({ eligibilityResults }) {
-  if (!eligibilityResults || eligibilityResults.length === 0) return null;
+  // Hide card when LLM is asking follow-up questions (all results are insufficient_information)
+  const actionableResults = (eligibilityResults || []).filter(
+    (item) => (item.status || 'insufficient_information') !== 'insufficient_information'
+  );
+  if (actionableResults.length === 0) return null;
 
   return (
     <div className="bg-white border border-[#E6E4DF] rounded-2xl p-6 shadow-sm animate-fade-up">
@@ -14,7 +18,7 @@ export default function EligibilityCard({ eligibilityResults }) {
       </div>
 
       <div className="space-y-3">
-        {eligibilityResults.map((item, i) => {
+        {actionableResults.map((item, i) => {
           const status = item.status || 'insufficient_information';
           const name = item.scheme_name || item.name || `Scheme ${i + 1}`;
           const reason = item.reason || '';

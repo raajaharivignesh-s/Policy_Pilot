@@ -78,24 +78,6 @@ export default function ChatHeader({
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <button
-          onClick={onGoHome}
-          className="px-4 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-full shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
-        >
-          <span>🏠</span> Home
-        </button>
-
-        <button
-          onClick={() => {
-            navigator.clipboard.writeText(window.location.href);
-            alert('Workspace URL copied!');
-          }}
-          className="px-4 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-full shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
-        >
-          <span>↗</span> Share
-        </button>
-      </div>
     </header>
   );
 }

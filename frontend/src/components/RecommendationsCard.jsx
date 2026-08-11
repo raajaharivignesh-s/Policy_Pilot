@@ -1,14 +1,14 @@
-// Outline SVG icons
-const IconGovBuilding = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <rect width="16" height="20" x="4" y="2" rx="2" ry="2"/>
-    <path d="M9 22v-4h6v4"/>
-    <path d="M8 6h.01"/><path d="M16 6h.01"/>
-    <path d="M12 6h.01"/><path d="M12 10h.01"/>
-    <path d="M12 14h.01"/><path d="M16 10h.01"/>
-    <path d="M16 14h.01"/><path d="M8 10h.01"/>
-    <path d="M8 14h.01"/>
-  </svg>
+import indiaEmblem from '../assets/india emblem.png';
+
+// Government of India National Emblem
+const GovEmblem = () => (
+  <img
+    src={indiaEmblem}
+    alt="Government of India Emblem"
+    width={44}
+    height={44}
+    style={{ objectFit: 'contain' }}
+  />
 );
 const IconGlobe = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -65,25 +65,19 @@ export default function RecommendationsCard({ recommendations }) {
           const bannerColor = bannerColors[i % bannerColors.length];
 
           return (
-            <div
+            <a
               key={i}
-              className="bg-white border border-[#E6E4DF] rounded-2xl p-4 flex flex-col justify-between hover:shadow-lg hover:shadow-orange-500/5 hover:border-amber-300 transition-all duration-200 group"
+              href={linkUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-white border border-[#E6E4DF] rounded-2xl p-4 flex flex-col justify-between hover:shadow-lg hover:shadow-orange-500/5 hover:border-amber-300 transition-all duration-200 group cursor-pointer no-underline"
             >
               <div>
-                {/* Top Banner — icon + benefit badge */}
-                <div className={`w-full h-32 rounded-xl bg-gradient-to-br ${bannerColor} p-4 flex flex-col justify-between mb-3 group-hover:scale-[1.02] transition-transform duration-200`}>
-                  <div className="flex justify-between items-start">
-                    {/* Outline government building icon */}
-                    <span className="text-gray-600 opacity-80">
-                      <IconGovBuilding />
-                    </span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider bg-white/80 backdrop-blur-xs px-2 py-0.5 rounded-md text-gray-800">
-                      {benefitText}
-                    </span>
-                  </div>
-                  {/* Scheme name in banner — consistent sans font */}
-                  <span className="text-xs font-sans font-bold text-gray-900 line-clamp-1">
-                    {name}
+                {/* Top Banner — national emblem + label centered */}
+                <div className={`w-full h-32 rounded-xl bg-gradient-to-br ${bannerColor} mb-3 group-hover:scale-[1.02] transition-transform duration-200 flex flex-col items-center justify-center gap-1.5`}>
+                  <GovEmblem />
+                  <span className="text-[10px] font-bold tracking-widest text-gray-600 uppercase text-center">
+                    Government of India
                   </span>
                 </div>
 
@@ -126,7 +120,7 @@ export default function RecommendationsCard({ recommendations }) {
                   <IconArrowUpRight />
                 </a>
               </div>
-            </div>
+            </a>
           );
         })}
       </div>
