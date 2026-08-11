@@ -48,7 +48,7 @@ class VoiceSession:
     def __init__(self, session_id: str):
         self.session_id = session_id
         self.audio_buffer: bytearray = bytearray()
-        self.voice: str = "alloy"
+        self.voice: str = "nova"
         self.language: str | None = None
         self.user_profile: dict = {}
         # Set this to cancel the current response pipeline

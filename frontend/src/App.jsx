@@ -23,6 +23,7 @@ export default function App() {
     doneSteps,
     stepLabels,
     runQuery,
+    addVoiceMessage,
   } = useQuery();
 
   const handleOpenChat = (initialQuery) => {
@@ -61,6 +62,7 @@ export default function App() {
       mobileSidebarOpen={mobileSidebarOpen}
       setMobileSidebarOpen={setMobileSidebarOpen}
       onGoToLanding={() => setView('landing')}
+      addVoiceMessage={addVoiceMessage}
     />
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 // SVG icons
 const IconCopy = () => (
@@ -28,6 +28,13 @@ const IconTarget = () => (
 const IconFolder = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+  </svg>
+);
+const IconSpeaker = ({ isSpeaking }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isSpeaking ? 'text-[#FF5500] animate-pulse' : ''}>
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
   </svg>
 );
 
@@ -98,13 +105,83 @@ function formatResponseText(text) {
 
 export default function FinalResponseCard({ data, onRerun }) {
   const [copied, setCopied] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const { final_response, intent, domain, confidence_score } = data;
+
+  useEffect(() => {
+    // Pre-load browser voices array
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = () => {
+          window.speechSynthesis.getVoices();
+        };
+      }
+    }
+    return () => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   const handleCopy = () => {
     if (final_response) {
       navigator.clipboard.writeText(final_response);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleToggleSpeak = () => {
+    if (!('speechSynthesis' in window) || !final_response) return;
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    } else {
+      window.speechSynthesis.cancel(); // Stop any existing speech
+
+      // Clean markdown tags for natural speech
+      const plainText = final_response
+        .replace(/#{1,6}\s+/g, '')
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/[*_~`]/g, '')
+        .replace(/\[(.*?)\]\(.*?\)/g, '$1');
+
+      const utterance = new SpeechSynthesisUtterance(plainText);
+      
+      // Find a female voice (e.g. Zira, Samantha, Jenny, Google US/UK Female, Natural female)
+      const voices = window.speechSynthesis.getVoices();
+      const femaleVoice = voices.find(v => {
+        const name = v.name.toLowerCase();
+        return (
+          name.includes('female') ||
+          name.includes('zira') ||
+          name.includes('samantha') ||
+          name.includes('jenny') ||
+          name.includes('victoria') ||
+          name.includes('karen') ||
+          name.includes('fiona') ||
+          name.includes('moira') ||
+          name.includes('aria') ||
+          name.includes('google us english') ||
+          name.includes('google uk english female') ||
+          name.includes('natural')
+        ) && (v.lang.startsWith('en'));
+      }) || voices.find(v => v.lang.startsWith('en'));
+
+      if (femaleVoice) {
+        utterance.voice = femaleVoice;
+      }
+      utterance.rate = 1.0;
+      utterance.pitch = 1.15; // Pleasant, natural warm female voice pitch
+
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+
+      setIsSpeaking(true);
+      window.speechSynthesis.speak(utterance);
     }
   };
 
@@ -143,8 +220,21 @@ export default function FinalResponseCard({ data, onRerun }) {
         </div>
       )}
 
-      {/* Action buttons: Copy + Re-answer */}
+      {/* Action buttons: Listen + Copy + Re-answer */}
       <div className="flex items-center justify-end gap-2 pt-2 text-xs text-gray-500 font-medium">
+        {final_response && 'speechSynthesis' in window && (
+          <button
+            onClick={handleToggleSpeak}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+              isSpeaking
+                ? 'bg-orange-50 text-[#FF5500] font-bold border border-orange-200'
+                : 'hover:bg-[#F1EFEA] hover:text-gray-900'
+            }`}
+            title={isSpeaking ? 'Stop listening' : 'Listen to response'}
+          >
+            <IconSpeaker isSpeaking={isSpeaking} /> {isSpeaking ? 'Stop Voice' : 'Listen'}
+          </button>
+        )}
         {onRerun && (
           <button
             onClick={onRerun}

@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.query import router as query_router
 from app.core.settings import settings
@@ -12,6 +13,24 @@ app = FastAPI(
         "AI Powered Government Scheme Discovery "
         "and Eligibility Platform"
     ),
+)
+
+
+# ============================================================
+# CORS — allow Vite dev server and any localhost origin
+# ============================================================
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -41,11 +60,12 @@ async def root():
 
 
 # ============================================================
-# Health Check
+# Health Check  (both /health and /api/health for the frontend)
 # ============================================================
 
 
 @app.get("/health", tags=["Health"])
+@app.get("/api/health", tags=["Health"])
 async def health():
     return {
         "status": "Healthy",

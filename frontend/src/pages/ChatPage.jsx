@@ -26,6 +26,7 @@ export default function ChatPage({
   mobileSidebarOpen,
   setMobileSidebarOpen,
   onGoToLanding,
+  addVoiceMessage,
 }) {
   const messagesEndRef = useRef(null);
 

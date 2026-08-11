@@ -54,7 +54,6 @@ export function useQuery() {
     saveChatsToStorage(updated);
     setActiveChatId(newChat.id);
     setQueryText('');
-    setError(null);
     setActiveStep(-1);
     setDoneSteps([]);
     return newChat.id;
@@ -216,6 +215,63 @@ export function useQuery() {
     }
   }, [queryText, isLoading, activeChatId, chats, startStepper, stopStepper]);
 
+  // Add a voice exchange (user transcript + AI response) directly to active chat
+  const addVoiceMessage = useCallback((transcript, responseText) => {
+    if (!transcript && !responseText) return;
+
+    let targetChatId = activeChatId;
+    let currentChats = [...chats];
+
+    if (!targetChatId || !currentChats.some(c => c.id === targetChatId)) {
+      const newId = Date.now().toString();
+      const newChat = {
+        id: newId,
+        title: (transcript || 'Voice Query').slice(0, 32),
+        createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        messages: [],
+      };
+      currentChats = [newChat, ...currentChats];
+      targetChatId = newId;
+      setActiveChatId(newId);
+    }
+
+    const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const userMsg = {
+      id: Date.now().toString() + '-vu',
+      sender: 'user',
+      text: transcript || '🎤 Voice query',
+      timestamp: ts,
+      isVoice: true,
+    };
+    const aiMsg = {
+      id: Date.now().toString() + '-vai',
+      sender: 'assistant',
+      data: {
+        final_response: responseText || '',
+        intent: 'voice',
+        domain: '',
+        recommendations: [],
+        eligibility_results: [],
+        required_documents: [],
+      },
+      timestamp: ts,
+      isVoice: true,
+    };
+
+    const updated = currentChats.map(c => {
+      if (c.id === targetChatId) {
+        const isFirst = c.messages.length === 0;
+        return {
+          ...c,
+          title: isFirst ? (transcript || 'Voice Query').slice(0, 32) : c.title,
+          messages: [...c.messages, userMsg, aiMsg],
+        };
+      }
+      return c;
+    });
+    saveChatsToStorage(updated);
+  }, [activeChatId, chats]);
+
   return {
     chats,
     activeChat,
@@ -232,5 +288,6 @@ export function useQuery() {
     doneSteps,
     stepLabels: STEPS,
     runQuery,
+    addVoiceMessage,
   };
 }
