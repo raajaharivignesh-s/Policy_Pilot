@@ -47,13 +47,21 @@ export default function RecommendationsCard({ recommendations }) {
       </div>
 
       {/* Grid of scheme cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {recommendations.map((scheme, i) => {
           const name = scheme.scheme_name || scheme.name || `Scheme ${i + 1}`;
           const desc = scheme.description || scheme.benefits || scheme.summary || '';
           const tags = scheme.tags || scheme.categories || [];
           const benefitText = scheme.benefit_amount || scheme.benefit || 'Verified Benefit';
-          const domainUrl = scheme.domain_url || scheme.source || 'india.gov.in';
+          const officialUrl = scheme.official_url || scheme.source_url || scheme.domain_url || scheme.source || '';
+          const linkUrl = officialUrl
+            ? officialUrl.startsWith('http')
+              ? officialUrl
+              : `https://${officialUrl}`
+            : 'https://india.gov.in';
+          const displayUrl = officialUrl
+            ? officialUrl.replace(/^https?:\/\//, '')
+            : 'india.gov.in';
           const bannerColor = bannerColors[i % bannerColors.length];
 
           return (
@@ -100,13 +108,23 @@ export default function RecommendationsCard({ recommendations }) {
               </div>
 
               {/* Domain Link */}
-              <div className="pt-3 border-t border-[#F1EFEA] flex items-center justify-between text-xs text-gray-500">
-                <span className="flex items-center gap-1 text-[11px] font-medium text-amber-800">
-                  <IconGlobe /> {domainUrl}
-                </span>
-                <span className="text-gray-400 group-hover:text-gray-700 transition-colors">
+              <div className="pt-3 border-t border-[#F1EFEA] flex items-center justify-between text-xs text-gray-500 gap-2">
+                <a
+                  href={linkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 min-w-0 flex items-center gap-1 text-[11px] font-medium text-amber-800 hover:text-amber-900 transition-colors break-words"
+                >
+                  <IconGlobe /> <span className="truncate">{displayUrl}</span>
+                </a>
+                <a
+                  href={linkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-shrink-0 text-gray-400 group-hover:text-gray-700 transition-colors"
+                >
                   <IconArrowUpRight />
-                </span>
+                </a>
               </div>
             </div>
           );

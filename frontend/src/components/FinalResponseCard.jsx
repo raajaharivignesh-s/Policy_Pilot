@@ -31,6 +31,71 @@ const IconFolder = () => (
   </svg>
 );
 
+function renderInlineBold(text) {
+  const elements = [];
+  let lastIndex = 0;
+  const boldRegex = /\*\*(.+?)\*\*/g;
+  let match;
+
+  while ((match = boldRegex.exec(text)) !== null) {
+    const [fullMatch, boldText] = match;
+    const start = match.index;
+
+    if (start > lastIndex) {
+      elements.push(text.slice(lastIndex, start));
+    }
+
+    elements.push(
+      <strong key={`bold-${start}`} className="font-bold">
+        {boldText}
+      </strong>
+    );
+
+    lastIndex = start + fullMatch.length;
+  }
+
+  if (lastIndex < text.length) {
+    elements.push(text.slice(lastIndex));
+  }
+
+  return elements.length > 0 ? elements : text;
+}
+
+function formatResponseText(text) {
+  if (!text) return null;
+
+  return text.split('\n').map((line, index) => {
+    const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
+
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const content = headingMatch[2];
+      const headingStyle =
+        level === 1
+          ? 'text-xl font-bold'
+          : level === 2
+          ? 'text-lg font-bold'
+          : 'text-base font-bold';
+
+      return (
+        <div key={index} className={`${headingStyle} mt-3 mb-1 text-gray-900`}>
+          {renderInlineBold(content)}
+        </div>
+      );
+    }
+
+    if (line.trim() === '') {
+      return <div key={index} className="h-2" />;
+    }
+
+    return (
+      <div key={index} className="leading-relaxed text-gray-800">
+        {renderInlineBold(line)}
+      </div>
+    );
+  });
+}
+
 export default function FinalResponseCard({ data, onRerun }) {
   const [copied, setCopied] = useState(false);
   const { final_response, intent, domain, confidence_score } = data;
@@ -58,8 +123,8 @@ export default function FinalResponseCard({ data, onRerun }) {
       </div>
 
       {/* Response content */}
-      <div className="text-sm md:text-base text-gray-800 leading-relaxed whitespace-pre-wrap font-sans">
-        {final_response || 'No response generated.'}
+      <div className="text-sm md:text-base leading-relaxed whitespace-pre-wrap font-sans">
+        {final_response ? formatResponseText(final_response) : 'No response generated.'}
       </div>
 
       {/* Meta tags */}

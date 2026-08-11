@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import LogoMark from './LogoMark';
 
 // Larger mic SVG icon
 const IconMic = ({ size = 22 }) => (
@@ -152,7 +153,7 @@ export default function ChatInput({ queryText, setQueryText, isLoading, onSubmit
           }`}
         >
           <div className="flex items-start gap-2">
-            <span className="text-orange-500 text-lg mt-0.5 select-none">✴️</span>
+            <span className="text-orange-500 text-lg mt-0.5 select-none"><LogoMark size={24} /></span>
             <textarea
               value={queryText}
               onChange={(e) => setQueryText(e.target.value)}

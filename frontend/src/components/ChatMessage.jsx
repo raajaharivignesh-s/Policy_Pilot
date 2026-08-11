@@ -2,6 +2,7 @@ import FinalResponseCard from './FinalResponseCard';
 import RecommendationsCard from './RecommendationsCard';
 import EligibilityCard from './EligibilityCard';
 import DocumentsCard from './DocumentsCard';
+import LogoMark from './LogoMark';
 
 const IconWarn = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -32,8 +33,8 @@ export default function ChatMessage({ message, onRerun }) {
   return (
     <div className="flex items-start gap-4 max-w-4xl animate-fade-up">
       {/* AI avatar — orange star to match brand */}
-      <div className="w-9 h-9 rounded-2xl bg-[#FF5500] text-white flex items-center justify-center text-base shadow-sm flex-shrink-0 mt-1 select-none">
-        ✴️
+      <div className="w-9 h-9 rounded-2xl  text-white flex items-center justify-center text-base shadow-sm flex-shrink-0 mt-1 select-none">
+        <LogoMark size={24} />
       </div>
 
       <div className="flex-1 space-y-4 min-w-0">
