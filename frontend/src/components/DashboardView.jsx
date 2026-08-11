@@ -2,6 +2,7 @@ import QueryForm from './QueryForm';
 import ResultsSection from './ResultsSection';
 import HistorySidebar from './HistorySidebar';
 
+
 export default function DashboardView({
   queryText,
   setQueryText,
