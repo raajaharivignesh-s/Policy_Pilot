@@ -7,6 +7,9 @@ from pydantic import BaseModel, Field
 from app.graph.workflow import policy_pilot_workflow
 from app.services.profile_service import profile_service
 from app.services.document_service import document_service
+from app.services.document_requirement_service import (
+    document_requirement_service,
+)
 
 
 router = APIRouter(
@@ -236,26 +239,38 @@ async def process_query(
     # --------------------------------------------------------
     
     available_documents_text = ""
+    extracted_document_fields: list[dict[str, Any]] = []
     target_folder_id = request.target_folder_id
 
     if target_folder_id and request.user_id:
         try:
             folder_uuid = UUID(target_folder_id)
             user_uuid = UUID(request.user_id)
-            documents = document_service.get_documents_in_folder(folder_uuid, user_uuid)
-            
-            docs_info = []
-            for doc in documents:
-                if doc.ocr_text:
-                    docs_info.append(f"--- Document: {doc.filename} ---\n{doc.ocr_text}")
-                else:
-                    docs_info.append(f"--- Document: {doc.filename} ---\n(No text extracted)")
-            
-            if docs_info:
-                available_documents_text = "\n\n".join(docs_info)
-                
+
+            extracted_document_fields = (
+                document_service.get_structured_documents_in_folder(
+                    folder_uuid,
+                    user_uuid,
+                )
+            )
+
+            if extracted_document_fields:
+                available_documents_text = (
+                    document_requirement_service.format_documents_for_prompt(
+                        extracted_document_fields,
+                        extracted_document_fields,
+                    )
+                )
+
+                user_profile = (
+                    document_requirement_service.merge_extracted_into_profile(
+                        user_profile,
+                        extracted_document_fields,
+                    )
+                )
+
         except ValueError:
-            pass # Invalid UUID
+            pass
 
     initial_state = {
         "query": query,
@@ -263,6 +278,7 @@ async def process_query(
         "conversation_history": conversation_history,
         "target_folder_id": target_folder_id,
         "available_documents": available_documents_text,
+        "extracted_document_fields": extracted_document_fields,
     }
 
     # --------------------------------------------------------

@@ -8,6 +8,7 @@ from app.agents.intent_agent import intent_agent
 from app.agents.recommendation_agent import recommendation_agent
 from app.agents.research_agent import research_agent
 from app.agents.verification_agent import verification_agent
+from app.agents.profile_extraction_agent import profile_extraction_agent
 
 from app.graph.nodes import initialize_state
 from app.graph.router import route_after_verification
@@ -107,6 +108,11 @@ def build_workflow():
     )
 
     graph.add_node(
+        "profile_extraction_agent",
+        profile_extraction_agent.run,
+    )
+
+    graph.add_node(
         "intent_agent",
         intent_agent.run,
     )
@@ -156,6 +162,11 @@ def build_workflow():
 
     graph.add_edge(
         "initialize_state",
+        "profile_extraction_agent",
+    )
+
+    graph.add_edge(
+        "profile_extraction_agent",
         "intent_agent",
     )
 

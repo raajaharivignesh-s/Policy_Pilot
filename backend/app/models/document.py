@@ -66,6 +66,14 @@ class Document(Base):
         Text,
         nullable=True,
     )
+    document_type: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+    extracted_fields: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=datetime.utcnow,

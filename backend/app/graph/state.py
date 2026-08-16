@@ -29,6 +29,9 @@ class PolicyPilotState(TypedDict, total=False):
     # Extracted OCR text from the documents in the target folder
     available_documents: str
 
+    # Structured fields extracted from uploaded documents
+    extracted_document_fields: list[dict[str, Any]]
+
     # Structured information about the citizen.
     #
     # Example:

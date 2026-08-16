@@ -3,6 +3,7 @@ from typing import Any
 
 from app.graph.state import PolicyPilotState
 from app.services.llm_service import llm_service
+from app.services.document_requirement_service import document_requirement_service
 
 
 class FinalResponseAgent:
@@ -286,6 +287,11 @@ Return ONLY the final user-facing response.
             "",
         ).strip()
 
+        conversation_history = state.get(
+            "conversation_history",
+            [],
+        )
+
         intent = state.get(
             "intent",
             "",
@@ -405,8 +411,14 @@ Return ONLY the final user-facing response.
                         for info in missing_information
                     ]
 
-                # Build document-upload-oriented response
-                if required_docs:
+                # Check if the user refused to upload documents in their query or history
+                user_refused_docs = document_requirement_service.user_declined_documents(
+                    query=query,
+                    conversation_history=conversation_history,
+                )
+
+                # Build document-upload-oriented response if not refused
+                if required_docs and not user_refused_docs:
                     if scheme_name:
                         opening = (
                             f"I can check your eligibility "
@@ -460,69 +472,25 @@ Return ONLY the final user-facing response.
                         "required_documents": required_docs,
                     }
 
-                # Fallback: if somehow required_docs is still empty
-                # but missing_information exists, force-convert to
-                # document requirements so the upload UI always shows.
-                elif missing_information:
-                    required_docs = [
-                        f"Document/Proof for: {info}"
-                        for info in missing_information
-                        if isinstance(info, str) and info.strip()
-                    ]
-
-                    if required_docs:
-                        if scheme_name:
-                            opening = (
-                                "I can check your eligibility "
-                                f"for **{scheme_name}**, but I need "
-                                "to verify your documents first."
-                            )
-                        else:
-                            opening = (
-                                "I can check your eligibility, "
-                                "but I need to verify your "
-                                "documents first."
-                            )
-
-                        response_lines = [
-                            opening,
-                            "",
-                            "**Please upload the following documents** "
-                            "using the buttons below:",
-                            "",
-                        ]
-
-                        for index, doc in enumerate(
-                            required_docs,
-                            start=1,
-                        ):
-                            response_lines.append(
-                                f"{index}. {doc}"
-                            )
-
-                        response_lines.extend(
-                            [
-                                "",
-                                "You can either **select documents "
-                                "from your existing wallet folder** "
-                                "or **upload new documents** to a "
-                                "new folder.",
-                            ]
-                        )
-
-                        return {
-                            "final_response": (
-                                "\n".join(
-                                    response_lines
-                                )
-                            ),
-                            "needs_clarification": True,
-                            "clarification_question": (
-                                "Please upload the required "
-                                "documents to verify eligibility."
-                            ),
-                            "required_documents": required_docs,
-                        }
+                # --------------------------------------------------
+                # Text-based Q&A Flow (Fallback or Refused Docs)
+                # --------------------------------------------------
+                
+                # If they refused docs or we only have text questions
+                questions = self._build_follow_up_questions(missing_information)
+                if questions:
+                    opening = "Okay, please answer the following questions so I can check your eligibility:"
+                    response_lines = [opening, ""]
+                    
+                    for index, q in enumerate(questions, start=1):
+                        response_lines.append(f"{index}. {q}")
+                    
+                    return {
+                        "final_response": "\n".join(response_lines),
+                        "needs_clarification": True,
+                        "clarification_question": "Please answer the questions to verify eligibility.",
+                        "required_documents": [], # Explicitly clear required docs so UI doesn't force upload
+                    }
 
                 # --------------------------------------------------
                 # Insufficient result but no explicit questions.

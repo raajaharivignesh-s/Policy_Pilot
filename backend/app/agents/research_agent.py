@@ -1193,6 +1193,7 @@ USER'S CURRENT MESSAGE:
 
             return {
                 "retrieved_documents": [],
+                "query": query,
             }
 
         # ======================================================
@@ -1213,6 +1214,7 @@ USER'S CURRENT MESSAGE:
                 return {
                     "retrieved_documents":
                         web_documents,
+                    "query": query,
                 }
 
         # ======================================================
@@ -1378,6 +1380,7 @@ USER'S CURRENT MESSAGE:
                 return {
                     "retrieved_documents":
                         useful_documents,
+                    "query": query,
                 }
 
         # ======================================================
@@ -1394,6 +1397,7 @@ USER'S CURRENT MESSAGE:
             return {
                 "retrieved_documents":
                     web_documents,
+                "query": query,
             }
 
         # ======================================================
@@ -1402,6 +1406,7 @@ USER'S CURRENT MESSAGE:
 
         return {
             "retrieved_documents": [],
+            "query": query,
         }
 
 research_agent = ResearchAgent()

@@ -27,6 +27,10 @@ def initialize_state(
             "available_documents",
             "",
         ),
+        "extracted_document_fields": state.get(
+            "extracted_document_fields",
+            [],
+        ),
         "intent": state.get("intent", ""),
         "domain": state.get("domain", ""),
         "retrieved_documents": state.get(

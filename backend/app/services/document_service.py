@@ -1,12 +1,15 @@
 import os
 import uuid
 import logging
-from typing import Optional, List
+from typing import Optional, List, Any
 from fastapi import UploadFile
 import fitz  # PyMuPDF
 
 from app.database.session import SessionLocal
 from app.models.document import DocumentFolder, Document
+from app.services.document_extraction_service import (
+    document_extraction_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +25,49 @@ class DocumentService:
             text = ""
             for page in doc:
                 text += page.get_text()
-            return text
+
+            if text.strip():
+                return text
+
+            # Scanned PDF fallback: OCR the first page as an image.
+            if len(doc) > 0:
+                pix = doc[0].get_pixmap(dpi=200)
+                image_path = f"{file_path}.page1.png"
+                pix.save(image_path)
+                try:
+                    return self.extract_text_from_image(image_path)
+                finally:
+                    if os.path.exists(image_path):
+                        os.remove(image_path)
+
+            return text or None
         except Exception as e:
             logger.error(f"Failed to extract text from PDF: {e}")
             return None
+
+    def _extract_structured_fields(
+        self,
+        ocr_text: str | None,
+        filename: str,
+        stored_fields: str | None = None,
+    ) -> dict[str, Any]:
+        if stored_fields:
+            fields = document_extraction_service.deserialize_fields(
+                stored_fields
+            )
+            if fields:
+                return fields
+
+        if not ocr_text or not ocr_text.strip():
+            return {
+                "document_type": "other",
+                "source_filename": filename,
+            }
+
+        return document_extraction_service.extract_from_text(
+            ocr_text=ocr_text,
+            filename=filename,
+        )
 
     def extract_text_from_image(self, file_path: str) -> Optional[str]:
         try:
@@ -145,6 +187,15 @@ class DocumentService:
                 ocr_text = self.extract_text_from_pdf(file_path)
             elif file.content_type in ("image/png", "image/jpeg", "image/jpg") or file_ext.lower() in (".png", ".jpg", ".jpeg"):
                 ocr_text = self.extract_text_from_image(file_path)
+
+            extracted_fields = self._extract_structured_fields(
+                ocr_text=ocr_text,
+                filename=file.filename,
+            )
+            document_type = extracted_fields.get(
+                "document_type",
+                "other",
+            )
                 
             document = Document(
                 folder_id=folder_id,
@@ -153,6 +204,10 @@ class DocumentService:
                 file_type=file.content_type,
                 file_size=file_size,
                 ocr_text=ocr_text,
+                document_type=document_type,
+                extracted_fields=document_extraction_service.serialize_fields(
+                    extracted_fields
+                ),
             )
             
             db.add(document)
@@ -160,6 +215,75 @@ class DocumentService:
             db.refresh(document)
             
             return document
+        finally:
+            db.close()
+
+    def get_structured_documents_in_folder(
+        self,
+        folder_id: uuid.UUID,
+        user_id: uuid.UUID,
+    ) -> list[dict[str, Any]]:
+        documents = self.get_documents_in_folder(
+            folder_id,
+            user_id,
+        )
+
+        structured_documents: list[dict[str, Any]] = []
+
+        for document in documents:
+            fields = self._extract_structured_fields(
+                ocr_text=document.ocr_text,
+                filename=document.filename,
+                stored_fields=document.extracted_fields,
+            )
+
+            if (
+                document.ocr_text
+                and not document.extracted_fields
+            ):
+                self._persist_extracted_fields(
+                    document.id,
+                    fields,
+                )
+
+            structured_documents.append(
+                {
+                    "filename": document.filename,
+                    "document_type": fields.get(
+                        "document_type",
+                        document.document_type or "other",
+                    ),
+                    "fields": fields,
+                    "ocr_text": document.ocr_text or "",
+                }
+            )
+
+        return structured_documents
+
+    def _persist_extracted_fields(
+        self,
+        document_id: uuid.UUID,
+        fields: dict[str, Any],
+    ) -> None:
+        db = SessionLocal()
+        try:
+            document = db.query(Document).filter(
+                Document.id == document_id
+            ).first()
+
+            if not document:
+                return
+
+            document.document_type = fields.get(
+                "document_type",
+                "other",
+            )
+            document.extracted_fields = (
+                document_extraction_service.serialize_fields(
+                    fields
+                )
+            )
+            db.commit()
         finally:
             db.close()
 

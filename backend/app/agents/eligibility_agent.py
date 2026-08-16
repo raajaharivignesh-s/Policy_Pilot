@@ -1,7 +1,11 @@
 import json
 from typing import Any
 
+from app.core.llm_json import parse_llm_json
 from app.graph.state import PolicyPilotState
+from app.services.document_requirement_service import (
+    document_requirement_service,
+)
 from app.services.llm_service import llm_service
 
 
@@ -114,6 +118,9 @@ For every result:
 - reason must briefly explain the decision.
 
 - required_documents must contain ONLY documents that are CURRENTLY MISSING. If a document is already provided in the available documents and satisfies a rule, do NOT include it in required_documents. Map only the missing_information to the documents needed to prove them.
+- Acceptable proofs: Aadhaar can satisfy age proof, identity proof, and residency/address proof together. Voter ID, Ration Card, Smart Card, Birth Certificate, and similar government IDs may also satisfy multiple requirements.
+- Ask ONLY for documents genuinely required by the scheme eligibility rules. Do not request unrelated documents.
+- required_documents should name the information needed and acceptable document types, e.g. "Age proof — Aadhaar, Voter ID, or Birth Certificate".
 
 Return ONLY valid JSON.
 
@@ -492,6 +499,22 @@ Required format:
             "",
         )
 
+        extracted_document_fields = state.get(
+            "extracted_document_fields",
+            [],
+        )
+
+        if not isinstance(
+            extracted_document_fields,
+            list,
+        ):
+            extracted_document_fields = []
+
+        user_profile = document_requirement_service.merge_extracted_into_profile(
+            user_profile,
+            extracted_document_fields,
+        )
+
         if not isinstance(
             user_profile,
             dict,
@@ -620,7 +643,7 @@ Required format:
                         ),
                     }
                 ],
-                "required_documents": [],
+                "required_documents": document_requirement_service.build_required_documents(missing_information),
             }
 
         # ======================================================
@@ -722,7 +745,7 @@ Verification Reason:
                         ),
                     }
                 ],
-                "required_documents": [],
+                "required_documents": document_requirement_service.build_required_documents(missing_information),
             }
 
         evidence_context = "\n\n".join(
@@ -745,9 +768,16 @@ RECENT CONVERSATION HISTORY (Use this to override or supplement profile info if 
 CURRENT QUERY:
 {query}
 
-AVAILABLE DOCUMENTS (OCR EXTRACTED):
+AVAILABLE DOCUMENTS (structured extraction + OCR):
 
 {available_documents if available_documents else "(No documents provided)"}
+
+IMPORTANT:
+- Structured fields such as date_of_birth, age, address, state, district,
+  occupation, land ownership, and student status extracted from uploaded
+  documents are already merged into the citizen profile above.
+- If Aadhaar or another ID provides both age and address, treat both as
+  satisfied and do not keep asking for separate age and residency proofs.
 
 DOMAIN:
 
@@ -835,7 +865,7 @@ Return ONLY the required JSON.
 
         try:
 
-            data: dict[str, Any] = json.loads(
+            data: dict[str, Any] = parse_llm_json(
                 response
             )
 
