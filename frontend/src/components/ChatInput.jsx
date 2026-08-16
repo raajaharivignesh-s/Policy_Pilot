@@ -25,7 +25,12 @@ const IconShield = () => (
   </svg>
 );
 
-export default function ChatInput({ queryText, setQueryText, isLoading, onSubmit }) {
+export default function ChatInput({ 
+  queryText, 
+  setQueryText, 
+  isLoading, 
+  onSubmit 
+}) {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const recognitionRef = useRef(null);
@@ -169,9 +174,11 @@ export default function ChatInput({ queryText, setQueryText, isLoading, onSubmit
           </div>
 
           <div className="flex items-center justify-between pt-1 border-t border-gray-100">
-            <span className="text-xs text-gray-400 font-medium">
-              Multi-Agent RAG &amp; Deterministic Eligibility Engine
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-gray-400 font-medium hidden md:inline">
+                Multi-Agent RAG &amp; Deterministic Eligibility Engine
+              </span>
+            </div>
 
             {/* Mic (larger) & Send */}
             <div className="flex items-center gap-2">

@@ -4,26 +4,66 @@ import { submitQuery } from '../api/query';
 const STEPS = ['Intent', 'Domain', 'Research', 'Verify', 'Eligibility', 'Recommend'];
 const STORAGE_KEY = 'policypilot_chats_v2';
 
-export function useQuery() {
+/**
+ * Build conversation history from chat messages array.
+ *
+ * Converts the internal message format into the
+ * {role, content} format expected by the backend.
+ */
+function buildConversationHistory(messages) {
+  if (!messages || messages.length === 0) return [];
+
+  const history = [];
+
+  for (const msg of messages) {
+    if (msg.sender === 'user' && msg.text) {
+      history.push({
+        role: 'user',
+        content: msg.text,
+      });
+    } else if (msg.sender === 'assistant' && msg.data?.final_response) {
+      history.push({
+        role: 'assistant',
+        content: msg.data.final_response,
+      });
+    }
+  }
+
+  return history;
+}
+
+export function useQuery(token, user) {
   const [chats, setChats]               = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
   const [queryText, setQueryText]       = useState('');
+  const [targetFolderId, setTargetFolderId] = useState('');
   const [isLoading, setIsLoading]       = useState(false);
   const [activeStep, setActiveStep]     = useState(-1);
   const [doneSteps, setDoneSteps]       = useState([]);
   const stepTimerRef                    = useRef(null);
 
-  // Load chat sessions from localStorage on mount
+  // Load chat sessions from localStorage on mount and always start with a new chat
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
+      let parsed = [];
       if (saved) {
-        const parsed = JSON.parse(saved);
-        setChats(parsed);
-        if (parsed.length > 0) {
-          setActiveChatId(parsed[0].id);
-        }
+        // Clean up empty chats from history so they don't accumulate
+        parsed = JSON.parse(saved).filter(c => c.messages && c.messages.length > 0);
       }
+
+      const newChat = {
+        id: Date.now().toString(),
+        title: 'New Conversation',
+        createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        messages: [],
+        conversationId: null, // Backend conversation ID for history tracking
+      };
+
+      const updated = [newChat, ...parsed];
+      setChats(updated);
+      setActiveChatId(newChat.id);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     } catch (e) {
       console.error('Failed to load chats', e);
     }
@@ -49,12 +89,12 @@ export function useQuery() {
       title: 'New Conversation',
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       messages: [],
+      conversationId: null, // Backend conversation ID for history tracking
     };
     const updated = [newChat, ...chats];
     saveChatsToStorage(updated);
     setActiveChatId(newChat.id);
     setQueryText('');
-    setError(null);
     setActiveStep(-1);
     setDoneSteps([]);
     return newChat.id;
@@ -128,7 +168,7 @@ export function useQuery() {
   }, []);
 
   // Run query in current active chat (or create new if none)
-  const runQuery = useCallback(async (customText) => {
+  const runQuery = useCallback(async (customText, overrideFolderId) => {
     const textToRun = customText || queryText;
     if (!textToRun.trim() || isLoading) return;
 
@@ -143,6 +183,7 @@ export function useQuery() {
         title: textToRun.trim().slice(0, 30) + (textToRun.length > 30 ? '…' : ''),
         createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         messages: [],
+        conversationId: null,
       };
       currentChats = [newChat, ...currentChats];
       targetChatId = newId;
@@ -175,8 +216,32 @@ export function useQuery() {
     startStepper();
 
     try {
-      const responseData = await submitQuery(textToRun.trim(), {});
+      // Get the target chat to extract conversation context
+      const targetChat = currentChats.find(c => c.id === targetChatId);
+      const backendConversationId = targetChat?.conversationId || null;
+
+      // Build conversation history from existing messages
+      // (excluding the just-added user message — the backend
+      //  receives the current query separately)
+      const existingMessages = targetChat?.messages?.slice(0, -1) || [];
+      const conversationHistory = buildConversationHistory(existingMessages);
+
+      const effectiveFolderId = overrideFolderId || targetFolderId || null;
+      const userId = user?.id || null;
+
+      const responseData = await submitQuery(
+        textToRun.trim(),
+        {},
+        backendConversationId,
+        conversationHistory,
+        token,
+        effectiveFolderId,
+        userId
+      );
       stopStepper(true);
+
+      // Store the backend conversation_id for future follow-ups
+      const returnedConversationId = responseData.conversation_id || backendConversationId;
 
       const aiMessage = {
         id: Date.now().toString() + '-ai',
@@ -187,7 +252,11 @@ export function useQuery() {
 
       const finalChats = currentChats.map(c => {
         if (c.id === targetChatId) {
-          return { ...c, messages: [...c.messages, aiMessage] };
+          return {
+            ...c,
+            conversationId: returnedConversationId,
+            messages: [...c.messages, aiMessage],
+          };
         }
         return c;
       });
@@ -214,7 +283,7 @@ export function useQuery() {
     } finally {
       setIsLoading(false);
     }
-  }, [queryText, isLoading, activeChatId, chats, startStepper, stopStepper]);
+  }, [queryText, isLoading, activeChatId, chats, startStepper, stopStepper, targetFolderId, token, user]);
 
   return {
     chats,
@@ -227,6 +296,8 @@ export function useQuery() {
     clearAllChats,
     queryText,
     setQueryText,
+    targetFolderId,
+    setTargetFolderId,
     isLoading,
     activeStep,
     doneSteps,

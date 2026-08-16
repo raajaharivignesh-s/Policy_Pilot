@@ -25,6 +25,7 @@ class EligibilityAgent:
     - Never assumes missing information.
     - If no verified eligibility evidence exists,
       returns insufficient_information.
+    - Follow-up information requests are domain-aware.
     """
 
     VALID_STATUSES = {
@@ -47,7 +48,9 @@ Your responsibility is to evaluate whether a citizen may
 be eligible for government schemes using ONLY:
 
 1. The citizen profile.
-2. The verified scheme evidence supplied to you.
+2. The recent conversation history.
+3. The available documents (OCR extracted text).
+4. The verified scheme evidence supplied to you.
 
 Do NOT use outside knowledge.
 
@@ -64,7 +67,7 @@ For every scheme, return exactly one status:
 IMPORTANT DECISION RULES:
 
 1. If ANY mandatory eligibility requirement is missing
-   from the citizen profile, the status MUST be:
+   from the citizen profile AND the available documents, the status MUST be:
 
    insufficient_information
 
@@ -87,6 +90,8 @@ IMPORTANT DECISION RULES:
 8. Do not infer income, age, citizenship, Aadhaar
    verification, bank account status, e-KYC status,
    family status, category, or any other missing value.
+   Do NOT infer completion of previous education levels (e.g. 6-12th study)
+   from a current degree/marksheet unless the document explicitly states it.
 
 9. Use only the supplied evidence.
 
@@ -98,15 +103,17 @@ IMPORTANT DECISION RULES:
 For every result:
 
 - matched_rules must contain only rules explicitly
-  satisfied by the citizen profile.
+  satisfied by the citizen profile or available documents.
 
 - failed_rules must contain only rules explicitly
-  failed by the citizen profile.
+  failed by the citizen profile or available documents.
 
 - missing_information must contain required information
-  that is absent from the citizen profile.
+  that is absent from the citizen profile AND available documents.
 
 - reason must briefly explain the decision.
+
+- required_documents must contain ONLY documents that are CURRENTLY MISSING. If a document is already provided in the available documents and satisfies a rule, do NOT include it in required_documents. Map only the missing_information to the documents needed to prove them.
 
 Return ONLY valid JSON.
 
@@ -120,7 +127,8 @@ Required format:
             "matched_rules": [],
             "failed_rules": [],
             "missing_information": [],
-            "reason": "short explanation"
+            "reason": "short explanation",
+            "required_documents": ["string"]
         }
     ]
 }
@@ -230,25 +238,73 @@ Required format:
 
         return ""
 
+    def _get_domain_from_state(
+        self,
+        state: PolicyPilotState,
+    ) -> str:
+        """
+        Return the normalized domain from workflow state.
+        """
+
+        domain = state.get(
+            "domain",
+            "",
+        )
+
+        if not isinstance(
+            domain,
+            str,
+        ):
+            return ""
+
+        return domain.strip().lower()
+
     def _build_missing_information_from_profile(
         self,
         user_profile: dict[str, Any],
+        domain: str,
     ) -> list[str]:
         """
-        Build generic information requests when the system
+        Build domain-aware information requests when the system
         knows that eligibility cannot yet be determined but
-        has no explicit eligibility rules to compare.
+        does not have explicit eligibility rules to compare.
 
-        These are framed as information requests, NOT as
-        confirmed government eligibility requirements.
+        IMPORTANT:
 
-        This distinction is important for safety.
+        These fields are NOT claimed to be official scheme
+        eligibility requirements.
 
-        We do not claim that the scheme officially requires
-        every field below.
+        They are only useful profile information that can help
+        perform a later eligibility assessment.
 
-        We only ask the citizen for useful profile details
-        that can help perform a later eligibility assessment.
+        The questions are intentionally different for each
+        PolicyPilot domain.
+
+        Agriculture:
+            - state
+            - district
+            - occupation
+            - land ownership/cultivation
+            - land details
+
+        Education:
+            - state
+            - district
+            - student status
+            - course/program
+            - year of study
+            - institution type
+
+        Healthcare:
+            - state
+            - district
+            - age
+            - occupation
+            - income/family information
+
+        Other domains:
+            - state
+            - district
         """
 
         if not isinstance(
@@ -257,45 +313,146 @@ Required format:
         ):
             user_profile = {}
 
-        missing_information = []
+        domain = (
+            domain
+            or ""
+        ).strip().lower()
 
-        if not user_profile.get(
-            "state"
-        ):
-            missing_information.append(
-                "Your state"
-            )
+        missing_information: list[str] = []
 
-        if not user_profile.get(
-            "district"
-        ):
-            missing_information.append(
-                "Your district"
-            )
+        # ======================================================
+        # Common location information
+        # ======================================================
+        # Removed state and district since the app is exclusively for Tamil Nadu 
+        # and schemes generally apply across all districts.
 
-        if not user_profile.get(
-            "occupation"
-        ):
-            missing_information.append(
-                "Your occupation"
-            )
+        # ======================================================
+        # Agriculture
+        # ======================================================
 
-        if (
-            "land_owner"
-            not in user_profile
-            and "land_acres"
-            not in user_profile
-        ):
-            missing_information.append(
-                "Whether you own or legally cultivate agricultural land"
-            )
+        if domain == "agriculture":
 
-        if not user_profile.get(
-            "land_acres"
-        ):
-            missing_information.append(
-                "Your approximate agricultural land or cultivation details"
-            )
+            if (
+                "land_owner"
+                not in user_profile
+                and "land_acres"
+                not in user_profile
+                and "land_owner"
+                not in user_profile
+            ):
+                missing_information.append(
+                    (
+                        "Whether you own or legally "
+                        "cultivate agricultural land"
+                    )
+                )
+
+            if not user_profile.get(
+                "land_acres"
+            ):
+                missing_information.append(
+                    (
+                        "Your approximate agricultural "
+                        "land or cultivation details"
+                    )
+                )
+
+        # ======================================================
+        # Education
+        # ======================================================
+
+        elif domain == "education":
+
+            if not user_profile.get(
+                "student"
+            ) and not user_profile.get(
+                "student_status"
+            ):
+                missing_information.append(
+                    "Whether you are currently a student"
+                )
+
+            if not user_profile.get(
+                "course"
+            ) and not user_profile.get(
+                "program"
+            ):
+                missing_information.append(
+                    "Your course or program of study"
+                )
+
+            if not user_profile.get(
+                "year"
+            ) and not user_profile.get(
+                "year_of_study"
+            ) and not user_profile.get(
+                "study_year"
+            ):
+                missing_information.append(
+                    "Your current year of study"
+                )
+
+            if not user_profile.get(
+                "institution_type"
+            ):
+                missing_information.append(
+                    (
+                        "Your institution type "
+                        "(Government, Government-aided, "
+                        "or Private)"
+                    )
+                )
+
+        # ======================================================
+        # Healthcare
+        # ======================================================
+
+        elif domain == "healthcare":
+
+            if (
+                "age"
+                not in user_profile
+                or user_profile.get(
+                    "age"
+                ) in (
+                    None,
+                    "",
+                )
+            ):
+                missing_information.append(
+                    "Your age"
+                )
+
+            if not user_profile.get(
+                "occupation"
+            ):
+                missing_information.append(
+                    "Your occupation"
+                )
+
+            if not user_profile.get(
+                "annual_income"
+            ) and not user_profile.get(
+                "income"
+            ):
+                missing_information.append(
+                    "Your approximate annual income"
+                )
+
+            if not user_profile.get(
+                "family_size"
+            ):
+                missing_information.append(
+                    "Your family size"
+                )
+
+        # ======================================================
+        # General / unknown domain
+        # ======================================================
+
+        else:
+            # Do not ask agriculture or other specific questions for general domain queries
+            pass
 
         return missing_information
 
@@ -311,6 +468,28 @@ Required format:
         user_profile = state.get(
             "user_profile",
             {},
+        )
+
+        conversation_history = state.get(
+            "conversation_history",
+            [],
+        )
+        
+        # Format conversation history for context
+        history_text = ""
+        if conversation_history:
+            history_lines = []
+            recent_history = conversation_history[-8:]
+            for msg in recent_history:
+                role = msg.get("role", "unknown").upper()
+                msg_content = msg.get("content", "").strip()
+                if msg_content:
+                    history_lines.append(f"{role}: {msg_content}")
+            history_text = "\\n".join(history_lines)
+
+        available_documents = state.get(
+            "available_documents",
+            "",
         )
 
         if not isinstance(
@@ -340,6 +519,10 @@ Required format:
             "",
         ).strip()
 
+        domain = self._get_domain_from_state(
+            state
+        )
+
         # ======================================================
         # Only eligibility queries should be evaluated here.
         # ======================================================
@@ -348,6 +531,7 @@ Required format:
 
             return {
                 "eligibility_results": [],
+                "required_documents": [],
             }
 
         # ======================================================
@@ -392,21 +576,18 @@ Required format:
             )
 
         # ======================================================
-        # IMPORTANT:
-        #
         # If no verified information exists at all,
-        # do NOT return [].
+        # return insufficient_information.
         #
-        # Return an explicit insufficient_information result
-        # so that FinalResponseAgent can ask the citizen for
-        # more details.
+        # The follow-up fields are domain-aware.
         # ======================================================
 
         if not supported_information:
 
             missing_information = (
                 self._build_missing_information_from_profile(
-                    user_profile
+                    user_profile,
+                    domain,
                 )
             )
 
@@ -439,6 +620,7 @@ Required format:
                         ),
                     }
                 ],
+                "required_documents": [],
             }
 
         # ======================================================
@@ -506,7 +688,8 @@ Verification Reason:
 
             missing_information = (
                 self._build_missing_information_from_profile(
-                    user_profile
+                    user_profile,
+                    domain,
                 )
             )
 
@@ -539,6 +722,7 @@ Verification Reason:
                         ),
                     }
                 ],
+                "required_documents": [],
             }
 
         evidence_context = "\n\n".join(
@@ -554,6 +738,21 @@ CITIZEN PROFILE:
 
 {json.dumps(user_profile, indent=2)}
 
+RECENT CONVERSATION HISTORY (Use this to override or supplement profile info if user just provided it):
+
+{history_text if history_text else "(No recent conversation)"}
+
+CURRENT QUERY:
+{query}
+
+AVAILABLE DOCUMENTS (OCR EXTRACTED):
+
+{available_documents if available_documents else "(No documents provided)"}
+
+DOMAIN:
+
+{domain}
+
 VERIFIED SCHEME EVIDENCE:
 
 {evidence_context}
@@ -564,15 +763,15 @@ Follow these rules strictly:
 
 1. Extract explicit eligibility requirements.
 
-2. Compare EVERY requirement with the citizen profile.
+2. Compare EVERY requirement with the citizen profile, the recent conversation history, AND the available documents. If the user states a demographic detail in the history or current query (e.g., "I am male", "I am a farmer"), treat it as fact. If a document provides evidence (e.g., a Marksheet showing education, an Aadhaar card showing address/identity, an Enrollment Proof showing student status), treat it as fact. Use all of this to evaluate the rules.
 
-3. If a required value is missing from the profile,
+3. If a required value is missing from the profile, conversation history, AND available documents,
    add it to missing_information.
 
 4. If at least one required value is missing,
    status MUST be insufficient_information.
 
-5. If at least one requirement is explicitly failed,
+5. If at least one requirement is explicitly failed (based on profile, history, or documents),
    status MUST be not_eligible.
 
 6. Status can be eligible ONLY if every explicit
@@ -586,6 +785,26 @@ Follow these rules strictly:
 
 10. Do not mark a citizen eligible merely because
     one eligibility condition is satisfied.
+
+11. If the official evidence explicitly says that
+    eligibility criteria have NOT yet been notified,
+    do NOT invent eligibility requirements.
+
+12. In that situation, return insufficient_information
+    and explain that the official eligibility criteria
+    are not yet available.
+
+13. Do not request agriculture-specific information
+    for education or healthcare schemes unless the
+    verified evidence explicitly requires it.
+
+14. Do not request education-specific information
+    for agriculture or healthcare schemes unless the
+    verified evidence explicitly requires it.
+
+15. Do not request healthcare-specific information
+    for agriculture or education schemes unless the
+    verified evidence explicitly requires it.
 
 Return ONLY the required JSON.
 """.strip()
@@ -647,6 +866,7 @@ Return ONLY the required JSON.
                         ),
                     }
                 ],
+                "required_documents": [],
                 "errors": [
                     "Eligibility Agent returned invalid JSON."
                 ],
@@ -713,6 +933,13 @@ Return ONLY the required JSON.
                 "reason",
                 "",
             )
+
+            required_docs = result.get(
+                "required_documents",
+                [],
+            )
+            if not isinstance(required_docs, list):
+                required_docs = []
 
             # --------------------------------------------------
             # Normalize fields.
@@ -825,6 +1052,7 @@ Return ONLY the required JSON.
                         missing_information
                     ),
                     "reason": reason,
+                    "required_documents": required_docs,
                 }
             )
 
@@ -856,10 +1084,20 @@ Return ONLY the required JSON.
                         ),
                     }
                 ],
+                "required_documents": [],
             }
+
+        # Collect all unique required documents to return at top-level
+        all_required_docs = []
+        for r in validated_results:
+            docs = r.get("required_documents", [])
+            for doc in docs:
+                if doc not in all_required_docs:
+                    all_required_docs.append(doc)
 
         return {
             "eligibility_results": validated_results,
+            "required_documents": all_required_docs,
         }
 
 

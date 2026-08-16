@@ -5,6 +5,7 @@ from app.models.message import Message
 from app.models.agent_execution import AgentExecution
 from app.models.scheme import Scheme
 from app.models.feedback import Feedback
+from app.models.document import DocumentFolder, Document
 
 __all__ = [
     "User",
@@ -14,4 +15,6 @@ __all__ = [
     "AgentExecution",
     "Scheme",
     "Feedback",
+    "DocumentFolder",
+    "Document",
 ]

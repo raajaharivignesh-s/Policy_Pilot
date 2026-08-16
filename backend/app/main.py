@@ -1,6 +1,9 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.query import router as query_router
+from app.api.routes.auth import router as auth_router
+from app.api.routes.documents import router as documents_router
 from app.core.settings import settings
 
 
@@ -13,6 +16,14 @@ app = FastAPI(
     ),
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # For dev. In production, change to specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # ============================================================
 # Routes
@@ -20,6 +31,12 @@ app = FastAPI(
 
 app.include_router(
     query_router,
+)
+app.include_router(
+    auth_router,
+)
+app.include_router(
+    documents_router,
 )
 
 

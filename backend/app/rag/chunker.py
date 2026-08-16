@@ -24,7 +24,9 @@ class SchemeChunker:
 
     1. Scheme 1: PM-KISAN
     2. PUDHUMAI PENN SCHEME
-    3. SCHOLARSHIP FOR DIFFERENTLY ABLED STUDENTS
+    3. TAMIZH PUDHALVAN SCHEME — Knowledge Base Entry
+    4. SCHOLARSHIP FOR DIFFERENTLY ABLED STUDENTS
+    5. MINORITY POST-MATRIC SCHOLARSHIP — Knowledge Base Entry
     """
 
     NUMBERED_SCHEME_PATTERN = re.compile(
@@ -36,10 +38,53 @@ class SchemeChunker:
         r"^(\d+)\.\s+(.+)$"
     )
 
-    def _is_named_scheme_heading(self, line: str) -> bool:
+    KNOWLEDGE_BASE_SUFFIX_PATTERN = re.compile(
+        r"\s*[—–-]\s*Knowledge\s+Base\s+Entry\s*$",
+        re.IGNORECASE,
+    )
+
+    def _normalize_named_scheme_heading(
+        self,
+        line: str,
+    ) -> str:
+        """
+        Normalize named scheme headings.
+
+        Example:
+
+            TAMIZH PUDHALVAN SCHEME — Knowledge Base Entry
+
+        becomes:
+
+            TAMIZH PUDHALVAN SCHEME
+        """
+
+        stripped = line.strip()
+
+        normalized = self.KNOWLEDGE_BASE_SUFFIX_PATTERN.sub(
+            "",
+            stripped,
+        ).strip()
+
+        return normalized
+
+    def _is_named_scheme_heading(
+        self,
+        line: str,
+    ) -> bool:
         """
         Detect scheme headings that are written as standalone
-        uppercase titles instead of 'Scheme N:'.
+        uppercase titles.
+
+        Supports headings such as:
+
+            PUDHUMAI PENN SCHEME
+
+        and:
+
+            TAMIZH PUDHALVAN SCHEME — Knowledge Base Entry
+
+            MINORITY POST-MATRIC SCHOLARSHIP — Knowledge Base Entry
         """
 
         stripped = line.strip()
@@ -58,9 +103,17 @@ class SchemeChunker:
         if stripped.upper() in excluded_titles:
             return False
 
-        # Named scheme headings are generally uppercase and
-        # contain an identifying scheme keyword.
-        if stripped != stripped.upper():
+        # Remove the standard knowledge-base suffix before
+        # checking the actual scheme heading.
+        heading = self._normalize_named_scheme_heading(
+            stripped
+        )
+
+        if not heading:
+            return False
+
+        # Named scheme headings are expected to be uppercase.
+        if heading != heading.upper():
             return False
 
         scheme_keywords = (
@@ -71,7 +124,7 @@ class SchemeChunker:
         )
 
         return any(
-            keyword in stripped
+            keyword in heading
             for keyword in scheme_keywords
         )
 
@@ -114,7 +167,9 @@ class SchemeChunker:
             if not current_content:
                 return
 
-            content = "\n".join(current_content).strip()
+            content = "\n".join(
+                current_content
+            ).strip()
 
             if not content:
                 return
@@ -127,7 +182,9 @@ class SchemeChunker:
                     scheme_name=current_scheme,
                     section=current_section,
                     domain=domain,
-                    chunk_id=f"{domain}_{chunk_number:04d}",
+                    chunk_id=(
+                        f"{domain}_{chunk_number:04d}"
+                    ),
                 )
             )
 
@@ -137,15 +194,21 @@ class SchemeChunker:
             # Format 1:
             # Scheme 1: PM-KISAN
             # --------------------------------------------------
-            numbered_scheme_match = self.NUMBERED_SCHEME_PATTERN.match(
-                line
+
+            numbered_scheme_match = (
+                self.NUMBERED_SCHEME_PATTERN.match(
+                    line
+                )
             )
 
             if numbered_scheme_match:
+
                 save_chunk()
 
                 current_scheme = (
-                    numbered_scheme_match.group(1).strip()
+                    numbered_scheme_match
+                    .group(1)
+                    .strip()
                 )
 
                 current_section = ""
@@ -155,13 +218,26 @@ class SchemeChunker:
 
             # --------------------------------------------------
             # Format 2:
+            #
             # PUDHUMAI PENN SCHEME
-            # SCHOLARSHIP FOR DIFFERENTLY ABLED STUDENTS
+            #
+            # TAMIZH PUDHALVAN SCHEME
+            # — Knowledge Base Entry
+            #
+            # MINORITY POST-MATRIC SCHOLARSHIP
+            # — Knowledge Base Entry
             # --------------------------------------------------
+
             if self._is_named_scheme_heading(line):
+
                 save_chunk()
 
-                current_scheme = line.strip()
+                current_scheme = (
+                    self._normalize_named_scheme_heading(
+                        line
+                    )
+                )
+
                 current_section = ""
                 current_content = []
 
@@ -175,20 +251,31 @@ class SchemeChunker:
             # 3. Benefits
             # 4. Eligibility
             # --------------------------------------------------
-            section_match = self.SECTION_PATTERN.match(line)
+
+            section_match = self.SECTION_PATTERN.match(
+                line
+            )
 
             if section_match and current_scheme:
 
                 save_chunk()
 
-                section_number = section_match.group(1)
-                section_name = section_match.group(2).strip()
+                section_number = (
+                    section_match.group(1)
+                )
+
+                section_name = (
+                    section_match.group(2).strip()
+                )
 
                 current_section = section_name
 
                 current_content = [
                     current_scheme,
-                    f"{section_number}. {section_name}",
+                    (
+                        f"{section_number}. "
+                        f"{section_name}"
+                    ),
                 ]
 
                 continue
@@ -196,10 +283,11 @@ class SchemeChunker:
             # --------------------------------------------------
             # Normal content
             # --------------------------------------------------
+
             if current_scheme and current_section:
                 current_content.append(line)
 
-        # Save final section
+        # Save final section.
         save_chunk()
 
         return chunks

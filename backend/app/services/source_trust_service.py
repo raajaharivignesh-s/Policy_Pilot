@@ -59,11 +59,15 @@ class SourceTrustService:
             return ""
 
         try:
-            parsed = urlparse(url)
+            parsed = urlparse(
+                url.strip()
+            )
 
-            hostname = parsed.hostname or ""
+            hostname = (
+                parsed.hostname or ""
+            )
 
-            return hostname.lower()
+            return hostname.lower().rstrip(".")
 
         except Exception:
             return ""
@@ -75,17 +79,46 @@ class SourceTrustService:
         """
         Check whether a domain is an official
         government domain.
+
+        Examples accepted:
+
+            tn.gov.in
+            www.tn.gov.in
+            scholarship.tn.gov.in
+            nic.in
+            example.nic.in
+
+        The check is boundary-aware so that a domain such as
+        notgov.in is not accidentally accepted.
         """
 
         if not domain:
             return False
 
+        domain = domain.lower().rstrip(".")
+
         for trusted_domain in self.HIGH_TRUST_DOMAINS:
 
-            if domain.endswith(
-                trusted_domain
-            ):
-                return True
+            trusted_domain = (
+                trusted_domain.lower()
+            )
+
+            if trusted_domain.startswith("."):
+
+                if domain.endswith(
+                    trusted_domain
+                ):
+                    return True
+
+            else:
+
+                if (
+                    domain == trusted_domain
+                    or domain.endswith(
+                        "." + trusted_domain
+                    )
+                ):
+                    return True
 
         return False
 
@@ -101,15 +134,18 @@ class SourceTrustService:
         if not domain:
             return False
 
+        domain = domain.lower().rstrip(".")
+
         for trusted_domain in self.MEDIUM_TRUST_DOMAINS:
+
+            trusted_domain = (
+                trusted_domain.lower()
+            )
 
             if (
                 domain == trusted_domain
                 or domain.endswith(
                     "." + trusted_domain
-                )
-                or domain.endswith(
-                    trusted_domain
                 )
             ):
                 return True
@@ -128,7 +164,13 @@ class SourceTrustService:
         if not domain:
             return False
 
+        domain = domain.lower().rstrip(".")
+
         for low_trust_domain in self.LOW_TRUST_DOMAINS:
+
+            low_trust_domain = (
+                low_trust_domain.lower()
+            )
 
             if (
                 domain == low_trust_domain

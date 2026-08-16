@@ -1,17 +1,27 @@
 from typing import Any
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 
 from app.graph.workflow import policy_pilot_workflow
 from app.services.profile_service import profile_service
+from app.services.document_service import document_service
 
 
 router = APIRouter(
     prefix="/api/v1",
     tags=["PolicyPilot"],
 )
+
+
+# ============================================================
+# Server-side conversation history store
+# ============================================================
+
+# Maps conversation_id -> list of message dicts
+# {"role": "user"|"assistant", "content": "..."}
+_conversation_histories: dict[str, list[dict[str, str]]] = {}
 
 
 # ============================================================
@@ -49,6 +59,20 @@ class QueryRequest(BaseModel):
             "previous LangGraph state. Reuse the same "
             "conversation_id for follow-up questions."
         ),
+    )
+
+    conversation_history: list[dict[str, str]] = Field(
+        default_factory=list,
+        description=(
+            "Optional conversation history from the "
+            "frontend. If empty, the server will use "
+            "its own accumulated history."
+        ),
+    )
+
+    target_folder_id: str | None = Field(
+        default=None,
+        description="Target document folder ID for context.",
     )
 
 
@@ -181,24 +205,64 @@ async def process_query(
                 ),
             ) from exc
 
-        if database_profile is None:
+        # If a profile exists in the database, use it.
+        # If not, continue with the default (empty)
+        # profile — the user_id is still needed for
+        # document loading even without a profile.
+        if database_profile is not None:
+            user_profile = database_profile
 
-            raise HTTPException(
-                status_code=404,
-                detail=(
-                    "Citizen profile not found."
-                ),
+    # --------------------------------------------------------
+    # Build conversation history
+    #
+    # Priority:
+    #   1. Frontend-provided history (if non-empty)
+    #   2. Server-side accumulated history
+    # --------------------------------------------------------
+
+    if request.conversation_history:
+        conversation_history = list(
+            request.conversation_history
+        )
+    else:
+        conversation_history = list(
+            _conversation_histories.get(
+                conversation_id, []
             )
-
-        user_profile = database_profile
+        )
 
     # --------------------------------------------------------
-    # Build initial workflow state
+    # Build workflow initial state
     # --------------------------------------------------------
+    
+    available_documents_text = ""
+    target_folder_id = request.target_folder_id
+
+    if target_folder_id and request.user_id:
+        try:
+            folder_uuid = UUID(target_folder_id)
+            user_uuid = UUID(request.user_id)
+            documents = document_service.get_documents_in_folder(folder_uuid, user_uuid)
+            
+            docs_info = []
+            for doc in documents:
+                if doc.ocr_text:
+                    docs_info.append(f"--- Document: {doc.filename} ---\n{doc.ocr_text}")
+                else:
+                    docs_info.append(f"--- Document: {doc.filename} ---\n(No text extracted)")
+            
+            if docs_info:
+                available_documents_text = "\n\n".join(docs_info)
+                
+        except ValueError:
+            pass # Invalid UUID
 
     initial_state = {
         "query": query,
         "user_profile": user_profile,
+        "conversation_history": conversation_history,
+        "target_folder_id": target_folder_id,
+        "available_documents": available_documents_text,
     }
 
     # --------------------------------------------------------
@@ -252,6 +316,35 @@ async def process_query(
             detail=(
                 "Workflow returned an invalid response."
             ),
+        )
+
+    # --------------------------------------------------------
+    # Accumulate conversation history server-side
+    # --------------------------------------------------------
+
+    final_response = result.get(
+        "final_response",
+        "",
+    )
+
+    if conversation_id not in _conversation_histories:
+        _conversation_histories[conversation_id] = []
+
+    _conversation_histories[conversation_id].append({
+        "role": "user",
+        "content": query,
+    })
+
+    if final_response:
+        _conversation_histories[conversation_id].append({
+            "role": "assistant",
+            "content": final_response,
+        })
+
+    # Keep history bounded (last 20 messages = 10 turns)
+    if len(_conversation_histories[conversation_id]) > 20:
+        _conversation_histories[conversation_id] = (
+            _conversation_histories[conversation_id][-20:]
         )
 
     # --------------------------------------------------------
