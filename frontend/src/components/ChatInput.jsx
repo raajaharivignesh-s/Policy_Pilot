@@ -38,6 +38,8 @@ export default function ChatInput({
 
   const isRecordingRef = useRef(false);
   isRecordingRef.current = isRecording;
+  
+  const baseTextRef = useRef('');
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -49,11 +51,12 @@ export default function ChatInput({
 
       recognition.onresult = (event) => {
         let transcript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
+        for (let i = 0; i < event.results.length; i++) {
           transcript += event.results[i][0].transcript;
         }
         if (transcript.trim()) {
-          setQueryText((prev) => (prev ? `${prev} ${transcript.trim()}` : transcript.trim()));
+          const base = baseTextRef.current;
+          setQueryText(base ? `${base} ${transcript.trim()}` : transcript.trim());
         }
       };
 
@@ -78,6 +81,7 @@ export default function ChatInput({
 
   const startRecording = () => {
     setIsRecording(true);
+    baseTextRef.current = queryText;
     setRecordingSeconds(0);
     timerRef.current = setInterval(() => {
       setRecordingSeconds((prev) => prev + 1);
