@@ -6,6 +6,15 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.documents import router as documents_router
 from app.core.settings import settings
 from app.voice.websocket import router as voice_ws_router
+from app.database.base import Base
+from app.database.connection import engine
+import app.models  # noqa: F401
+
+# Auto-initialize database tables (PostgreSQL or SQLite)
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    print(f"Database schema init warning: {e}")
 
 
 app = FastAPI(
