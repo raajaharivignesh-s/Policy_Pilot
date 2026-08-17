@@ -4,8 +4,13 @@ import uuid
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import JWTError, jwt
 from sqlalchemy.orm import Session
+
+try:
+    from jose import JWTError, jwt
+except ImportError:
+    import jwt
+    JWTError = Exception
 
 from app.core.settings import settings
 from app.database.session import SessionLocal
