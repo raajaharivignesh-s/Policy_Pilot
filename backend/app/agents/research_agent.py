@@ -50,7 +50,7 @@ class ResearchAgent:
 
     # Maximum number of unique schemes to retain during broad
     # discovery.
-    MAX_DISCOVERY_SCHEMES = 5
+    MAX_DISCOVERY_SCHEMES = 3
 
     CURRENT_KEYWORDS = {
         "latest",

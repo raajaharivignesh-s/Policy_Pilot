@@ -1,31 +1,22 @@
-import asyncio
+import sys
+import os
+
+sys.path.insert(0, os.path.abspath("c:\\Users\\rajah\\OneDrive\\Desktop\\Policy-Pilot\\backend"))
+
 from app.graph.workflow import policy_pilot_workflow
 
-async def main():
+try:
     initial_state = {
-        "query": "check my eligibility",
+        "query": "What government schemes are available for students?",
         "user_profile": {},
-        "conversation_history": [
-            {"role": "user", "content": "explain TPS"},
-            {"role": "assistant", "content": "The Tamizh Pudhalvan Scheme (TPS) provides..."}
-        ],
+        "conversation_history": [],
         "target_folder_id": None,
         "available_documents": "",
         "extracted_document_fields": [],
     }
-
-    config = {
-        "configurable": {
-            "thread_id": "test-123",
-        }
-    }
-
-    try:
-        result = policy_pilot_workflow.invoke(initial_state, config=config)
-        print("Success!")
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-
-if __name__ == "__main__":
-    asyncio.run(main())
+    config = {"configurable": {"thread_id": "test"}}
+    result = policy_pilot_workflow.invoke(initial_state, config=config)
+    print("Success")
+except Exception as e:
+    import traceback
+    traceback.print_exc()
