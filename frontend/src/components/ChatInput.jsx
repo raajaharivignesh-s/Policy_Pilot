@@ -39,13 +39,22 @@ export default function ChatInput({
   setQueryText,
   isLoading,
   onSubmit,
+  voice,
 }) {
-  const [isRecording, setIsRecording] = useState(false);
+  const [internalIsRecording, setInternalIsRecording] = useState(false);
   const [voiceError, setVoiceError] = useState(null);
   const recognitionRef = useRef(null);
   const shouldAutoSubmitRef = useRef(false);
 
+  // Active state: prefer voice prop (WebSocket) if available, otherwise local state
+  const isRecording = voice ? voice.isRecording : internalIsRecording;
+  const isProcessing = voice?.isProcessing;
+  const isPlaying = voice?.isPlaying;
+  const activeVoiceError = voice?.error || voiceError;
+
   useEffect(() => {
+    if (voice) return; // Skip local WebSpeech setup if WebSocket voice prop provided
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
@@ -54,7 +63,7 @@ export default function ChatInput({
       recognition.lang = 'en-US';
 
       recognition.onstart = () => {
-        setIsRecording(true);
+        setInternalIsRecording(true);
         setVoiceError(null);
       };
 
@@ -73,11 +82,11 @@ export default function ChatInput({
         if (event.error !== 'no-speech') {
           setVoiceError(`Voice recognition: ${event.error}`);
         }
-        setIsRecording(false);
+        setInternalIsRecording(false);
       };
 
       recognition.onend = () => {
-        setIsRecording(false);
+        setInternalIsRecording(false);
         if (shouldAutoSubmitRef.current && queryText.trim() && !isLoading) {
           shouldAutoSubmitRef.current = false;
           onSubmit();
@@ -86,19 +95,28 @@ export default function ChatInput({
 
       recognitionRef.current = recognition;
     }
-  }, [setQueryText, onSubmit, isLoading, queryText]);
+  }, [voice, setQueryText, onSubmit, isLoading, queryText]);
 
   const toggleRecording = () => {
+    if (voice) {
+      if (voice.isRecording) {
+        voice.stopRecording();
+      } else {
+        voice.startRecording();
+      }
+      return;
+    }
+
     if (!recognitionRef.current) {
       setVoiceError('Speech recognition is not supported in this browser. Please use Chrome or Edge.');
       return;
     }
 
-    if (isRecording) {
+    if (internalIsRecording) {
       try {
         recognitionRef.current.stop();
       } catch (err) {
-        setIsRecording(false);
+        setInternalIsRecording(false);
       }
     } else {
       setVoiceError(null);
@@ -106,12 +124,11 @@ export default function ChatInput({
       try {
         recognitionRef.current.start();
       } catch (err) {
-        // If already started or resetting
         try {
           recognitionRef.current.stop();
           setTimeout(() => recognitionRef.current.start(), 100);
         } catch (e) {
-          setIsRecording(false);
+          setInternalIsRecording(false);
         }
       }
     }
@@ -119,8 +136,11 @@ export default function ChatInput({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (isRecording && recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (err) {}
+    if (isRecording) {
+      if (voice) voice.stopRecording();
+      else if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (err) {}
+      }
     }
     if (queryText.trim() && !isLoading) {
       onSubmit();
@@ -138,8 +158,8 @@ export default function ChatInput({
     <div className="sticky bottom-0 bg-gradient-to-t from-[#FAFAFA] via-[#FAFAFA]/90 to-transparent pt-3 pb-6 px-4 md:px-8 font-sans">
       <div className="max-w-4xl mx-auto space-y-2">
 
-        {/* ── Voice recording active banner ───────────────────────────────── */}
-        {isRecording && (
+        {/* ── Voice recording / processing active banner ───────────────────── */}
+        {(isRecording || isProcessing || isPlaying) && (
           <div className="px-4 py-2.5 rounded-2xl bg-[#1A1A1A] text-white border border-rose-500/30 shadow-lg flex items-center justify-between animate-fade-up">
             <div className="flex items-center gap-3">
               <span className="flex h-3 w-3 relative">
@@ -147,7 +167,9 @@ export default function ChatInput({
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"/>
               </span>
               <span className="text-xs font-semibold">
-                🎙 Listening… Speak your question clearly into your microphone
+                {isRecording && '🎙 Streaming Voice AI listening… Speak clearly into microphone'}
+                {isProcessing && '⚡ Transcribing & generating streaming response…'}
+                {isPlaying && '🔊 Playing AI voice response…'}
               </span>
             </div>
 
@@ -163,15 +185,15 @@ export default function ChatInput({
               onClick={toggleRecording}
               className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-full transition-colors flex items-center gap-1 cursor-pointer"
             >
-              <IconStop /> Stop &amp; Search
+              <IconStop /> {isRecording ? 'Stop & Process' : 'Stop'}
             </button>
           </div>
         )}
 
         {/* ── Voice error banner ──────────────────────────────────────────── */}
-        {voiceError && !isRecording && (
+        {activeVoiceError && !isRecording && (
           <div className="px-4 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-center gap-2">
-            ⚠ {voiceError}
+            ⚠ {activeVoiceError}
           </div>
         )}
 
@@ -195,7 +217,7 @@ export default function ChatInput({
               rows={2}
               placeholder={
                 isRecording
-                  ? 'Listening… your spoken words will appear here live…'
+                  ? 'Listening… speak your query live…'
                   : 'Ask anything about government schemes, eligibility, farmer assistance…'
               }
               className="w-full text-sm md:text-base text-gray-900 bg-transparent outline-none resize-none placeholder-gray-400 leading-relaxed font-sans"
@@ -203,9 +225,11 @@ export default function ChatInput({
           </div>
 
           <div className="flex items-center justify-between pt-1 border-t border-gray-100">
-            <span className="text-xs text-gray-400 font-medium">
-              Multi-Agent RAG · Deterministic Eligibility Engine
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-gray-400 font-medium hidden md:inline">
+                Multi-Agent RAG &amp; Streaming Voice AI Engine
+              </span>
+            </div>
 
             <div className="flex items-center gap-2">
               {/* Mic button */}
@@ -218,7 +242,7 @@ export default function ChatInput({
                     ? 'text-rose-600 bg-rose-50 border border-rose-200 animate-pulse'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                 }`}
-                title={isRecording ? 'Stop voice recording' : 'Voice input (Speech to Text)'}
+                title={isRecording ? 'Stop voice recording' : 'Voice input (Whisper STT & TTS)'}
               >
                 {isRecording ? <IconStop /> : <IconMic size={22} />}
               </button>

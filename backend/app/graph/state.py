@@ -15,6 +15,23 @@ class PolicyPilotState(TypedDict, total=False):
 
     query: str
 
+    # Previous messages in the conversation.
+    #
+    # Each entry is a dict with:
+    #     {"role": "user" | "assistant", "content": "..."}
+    #
+    # Used to give agents context for follow-up questions.
+    conversation_history: list[dict[str, str]]
+
+    # Target folder ID representing "For whom?" the user is querying
+    target_folder_id: str | None
+
+    # Extracted OCR text from the documents in the target folder
+    available_documents: str
+
+    # Structured fields extracted from uploaded documents
+    extracted_document_fields: list[dict[str, Any]]
+
     # Structured information about the citizen.
     #
     # Example:

@@ -117,10 +117,34 @@ function formatResponseText(text) {
   });
 }
 
+function getVerificationMeta(data) {
+  const verified = Array.isArray(data?.verified_information)
+    ? data.verified_information
+    : [];
+  const supportedCount = verified.filter((item) => item?.supported === true).length;
+  const hasVerifiedSources = supportedCount > 0;
+
+  let confidenceLabel = 'Insufficient verification';
+  if (typeof data?.confidence_score === 'number') {
+    confidenceLabel = `${Math.round(data.confidence_score * 100)}% verified`;
+  } else if (verified.length > 0) {
+    confidenceLabel = `${Math.round((supportedCount / verified.length) * 100)}% verified`;
+  }
+
+  return {
+    hasVerifiedSources,
+    confidenceLabel,
+    summaryTitle: hasVerifiedSources
+      ? 'Verified Policy Summary'
+      : 'Policy Summary',
+  };
+}
+
 export default function FinalResponseCard({ data, onRerun }) {
   const [copied, setCopied] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const { final_response, intent, domain, confidence_score } = data;
+  const { final_response, intent, domain, confidence_score } = data || {};
+  const { hasVerifiedSources, confidenceLabel, summaryTitle } = getVerificationMeta(data);
 
   useEffect(() => {
     // Pre-load browser voices array
@@ -204,12 +228,22 @@ export default function FinalResponseCard({ data, onRerun }) {
       {/* Verification & Confidence */}
       <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#F1EFEA]">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-          <span className="text-xs font-bold text-gray-800">Verified Policy Summary</span>
+          <span
+            className={`w-2 h-2 rounded-full ${
+              hasVerifiedSources ? 'bg-emerald-500' : 'bg-amber-400'
+            }`}
+          />
+          <span className="text-xs font-bold text-gray-800">{summaryTitle}</span>
         </div>
-        <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+        <span
+          className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 border ${
+            hasVerifiedSources
+              ? 'bg-amber-50 text-amber-800 border-amber-200'
+              : 'bg-gray-50 text-gray-600 border-gray-200'
+          }`}
+        >
           <IconTarget />
-          Confidence: {confidence_score ? `${Math.round(confidence_score * 100)}%` : '100% Rule Match'}
+          {hasVerifiedSources ? `Confidence: ${confidenceLabel}` : confidenceLabel}
         </span>
       </div>
 

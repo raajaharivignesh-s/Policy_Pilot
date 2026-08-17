@@ -31,6 +31,9 @@ export default function Sidebar({
   isOpen,
   onCloseMobile,
   onGoToLanding,
+  user,
+  onLogout,
+  onGoToDashboard,
 }) {
   const [healthy, setHealthy] = useState(null);
   const [editingChatId, setEditingChatId] = useState(null);
@@ -216,19 +219,32 @@ export default function Sidebar({
         </div>
 
         {/* Bottom User Card */}
-        <div className="p-3 m-3 bg-white border border-gray-200 rounded-2xl flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white flex-shrink-0">
-              <IconUser />
+        <div 
+          onClick={onGoToDashboard}
+          className="p-3 m-3 bg-white border border-gray-200 rounded-2xl flex items-center justify-between shadow-sm relative group cursor-pointer hover:border-orange-200 transition-colors"
+        >
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white flex-shrink-0 text-sm font-bold">
+              {user?.name ? user.name.charAt(0).toUpperCase() : <IconUser />}
             </div>
-            <div className="text-xs">
-              <p className="font-bold text-gray-900 leading-tight">Citizen User</p>
-              <p className="text-[10px] text-gray-400 flex items-center gap-1">
-                <span className={`w-1.5 h-1.5 rounded-full ${healthy ? 'bg-emerald-500' : 'bg-gray-400'}`} />
-                {healthy ? 'Online' : 'Offline'}
+            <div className="text-xs truncate">
+              <p className="font-bold text-gray-900 leading-tight truncate group-hover:text-[#FF6B00] transition-colors">{user?.name || 'Citizen User'}</p>
+              <p className="text-[10px] text-gray-400 flex items-center gap-1 truncate">
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${healthy ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                <span className="truncate">{user?.email || (healthy ? 'Online' : 'Offline')}</span>
               </p>
             </div>
           </div>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onLogout();
+            }}
+            className="text-gray-400 hover:text-red-500 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 bg-gray-50"
+            title="Logout"
+          >
+            <IconX />
+          </button>
         </div>
       </aside>
     </>

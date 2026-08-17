@@ -1,3 +1,4 @@
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 
 from app.agents.domain_agent import domain_agent
@@ -7,6 +8,7 @@ from app.agents.intent_agent import intent_agent
 from app.agents.recommendation_agent import recommendation_agent
 from app.agents.research_agent import research_agent
 from app.agents.verification_agent import verification_agent
+from app.agents.profile_extraction_agent import profile_extraction_agent
 
 from app.graph.nodes import initialize_state
 from app.graph.router import route_after_verification
@@ -23,7 +25,10 @@ def route_after_domain(
     General/unrelated queries bypass the RAG pipeline.
     """
 
-    domain = state.get("domain", "").strip().lower()
+    domain = state.get(
+        "domain",
+        "",
+    ).strip().lower()
 
     if domain in {
         "agriculture",
@@ -39,6 +44,10 @@ def build_workflow():
     """
     Build the complete PolicyPilot LangGraph workflow.
 
+    The workflow uses an InMemorySaver checkpointer so that
+    state can be restored across multiple invocations using
+    the same thread_id.
+
     Flow:
 
         START
@@ -50,33 +59,33 @@ def build_workflow():
         domain_agent
           ↓
         domain router
-          │
-          ├── agriculture
-          ├── education
-          └── healthcare
-                    ↓
-              research_agent
-                    ↓
-            verification_agent
-                    ↓
-              intent router
-                 │
-          ┌──────┴────────┐
-          │               │
-    eligibility      scheme_discovery
-          │               │
-          ▼               ▼
-    eligibility      recommendation
-       agent              agent
-          │               │
-          └───────┬───────┘
-                  ▼
-          final_response_agent
-                  │
-                  ▼
-                 END
+             │
+             ├── agriculture
+             ├── education
+             └── healthcare
+                       ↓
+                 research_agent
+                       ↓
+               verification_agent
+                       ↓
+                 intent router
+                    │
+             ┌──────┴────────┐
+             │               │
+        eligibility     scheme_discovery
+             │               │
+             ▼               ▼
+        eligibility      recommendation
+           agent              agent
+             │               │
+             └───────┬───────┘
+                     ▼
+             final_response_agent
+                     │
+                     ▼
+                    END
 
-    General / unrelated query:
+        General/unrelated query:
 
         domain_agent
              ↓
@@ -85,7 +94,9 @@ def build_workflow():
             END
     """
 
-    graph = StateGraph(PolicyPilotState)
+    graph = StateGraph(
+        PolicyPilotState
+    )
 
     # ==================================================
     # Nodes
@@ -94,6 +105,11 @@ def build_workflow():
     graph.add_node(
         "initialize_state",
         initialize_state,
+    )
+
+    graph.add_node(
+        "profile_extraction_agent",
+        profile_extraction_agent.run,
     )
 
     graph.add_node(
@@ -146,6 +162,11 @@ def build_workflow():
 
     graph.add_edge(
         "initialize_state",
+        "profile_extraction_agent",
+    )
+
+    graph.add_edge(
+        "profile_extraction_agent",
         "intent_agent",
     )
 
@@ -163,7 +184,9 @@ def build_workflow():
         route_after_domain,
         {
             "research_agent": "research_agent",
-            "final_response_agent": "final_response_agent",
+            "final_response_agent": (
+                "final_response_agent"
+            ),
         },
     )
 
@@ -184,9 +207,15 @@ def build_workflow():
         "verification_agent",
         route_after_verification,
         {
-            "eligibility_agent": "eligibility_agent",
-            "recommendation_agent": "recommendation_agent",
-            "final_response_agent": "final_response_agent",
+            "eligibility_agent": (
+                "eligibility_agent"
+            ),
+            "recommendation_agent": (
+                "recommendation_agent"
+            ),
+            "final_response_agent": (
+                "final_response_agent"
+            ),
         },
     )
 
@@ -218,10 +247,18 @@ def build_workflow():
     )
 
     # ==================================================
-    # Compile
+    # Checkpointer
     # ==================================================
 
-    return graph.compile()
+    checkpointer = InMemorySaver()
+
+    # ==================================================
+    # Compile workflow with memory
+    # ==================================================
+
+    return graph.compile(
+        checkpointer=checkpointer,
+    )
 
 
 policy_pilot_workflow = build_workflow()

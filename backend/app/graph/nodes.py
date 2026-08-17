@@ -16,6 +16,21 @@ def initialize_state(
     return {
         **state,
         "query": query,
+        "conversation_history": state.get(
+            "conversation_history",
+            [],
+        ),
+        "target_folder_id": state.get(
+            "target_folder_id",
+        ),
+        "available_documents": state.get(
+            "available_documents",
+            "",
+        ),
+        "extracted_document_fields": state.get(
+            "extracted_document_fields",
+            [],
+        ),
         "intent": state.get("intent", ""),
         "domain": state.get("domain", ""),
         "retrieved_documents": state.get(

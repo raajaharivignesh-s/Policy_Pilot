@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.query import router as query_router
+from app.api.routes.auth import router as auth_router
+from app.api.routes.documents import router as documents_router
 from app.core.settings import settings
 from app.voice.websocket import router as voice_ws_router
 
@@ -15,19 +17,9 @@ app = FastAPI(
     ),
 )
 
-
-# ============================================================
-# CORS — allow Vite dev server and any localhost origin
-# ============================================================
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,10 +30,9 @@ app.add_middleware(
 # Routes
 # ============================================================
 
-# Existing text/query API
 app.include_router(query_router)
-
-# New streaming voice WebSocket
+app.include_router(auth_router)
+app.include_router(documents_router)
 app.include_router(voice_ws_router)
 
 

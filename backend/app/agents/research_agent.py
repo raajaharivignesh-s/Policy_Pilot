@@ -4,34 +4,53 @@ from urllib.parse import urlparse
 from app.graph.state import PolicyPilotState
 from app.rag.retriever import retriever
 from app.services.search_service import search_service
+from app.services.llm_service import llm_service
 
 
 class ResearchAgent:
     """
     Retrieves government-scheme information.
 
-    Primary knowledge source:
-        ChromaDB
+    Knowledge strategy
+    ------------------
 
-    Web source:
-        Tavily
-
-    Current/latest queries:
-        Tavily first
-
-    Normal queries:
-        ChromaDB first
-
-    If ChromaDB results are clearly insufficient or unrelated:
-        Tavily fallback
-
-    Important:
-        - Web URLs are preserved directly from Tavily.
-        - No URL is generated or guessed.
-        - Official URLs are validated downstream.
+    1. ChromaDB is the primary knowledge source.
+    2. Domain filtering is applied whenever a domain is known.
+    3. Broad scheme-discovery queries retrieve multiple chunks.
+    4. Retrieved chunks are diversified by scheme so that one
+       scheme cannot consume the entire retrieval window.
+    5. Specific scheme queries use targeted retrieval.
+    6. Current/latest queries use web search first.
+    7. ChromaDB falls back to web search when its evidence is
+       insufficient.
+    8. Web URLs are preserved exactly as returned by the search
+       service.
+    9. No URL is generated or guessed.
     """
 
     MAX_CHROMA_DISTANCE = 1.25
+
+    # Number of chunks retrieved from ChromaDB before applying
+    # scheme-level diversification.
+    BROAD_RETRIEVAL_TOP_K = 25
+
+    # Number of chunks retained from one scheme for a broad
+    # discovery query.
+    #
+    # Keeping more than one chunk is important because different
+    # sections may contain:
+    #
+    #   - identity
+    #   - eligibility
+    #   - benefits
+    #   - documents
+    #   - application process
+    #
+    MAX_CHUNKS_PER_SCHEME = 3
+
+    # Maximum number of unique schemes to retain during broad
+    # discovery.
+    MAX_DISCOVERY_SCHEMES = 5
 
     CURRENT_KEYWORDS = {
         "latest",
@@ -61,6 +80,7 @@ class ResearchAgent:
     def __init__(self):
         self.retriever = retriever
         self.search_service = search_service
+        self.llm_service = llm_service
 
     # ==========================================================
     # Current Query Detection
@@ -96,9 +116,6 @@ class ResearchAgent:
 
         Retained for compatibility with existing tests
         and code.
-
-        Actual web-search trust information comes from
-        SearchService / SourceTrustService.
         """
 
         if not url:
@@ -140,7 +157,7 @@ class ResearchAgent:
         return False
 
     # ==========================================================
-    # Query Helpers
+    # Query Normalization
     # ==========================================================
 
     def _normalize_text(
@@ -150,15 +167,13 @@ class ResearchAgent:
         """
         Normalize text for lightweight matching.
 
-        Punctuation is converted to spaces.
-
-        This ensures that:
+        Examples:
 
             PM-KISAN
             PM KISAN
             PM-KISAN?
 
-        can all be matched consistently.
+        become comparable.
         """
 
         if not text:
@@ -181,28 +196,29 @@ class ResearchAgent:
             normalized.split()
         )
 
+    # ==========================================================
+    # Specific Scheme Extraction
+    # ==========================================================
+
     def _extract_specific_scheme_terms(
         self,
         query: str,
     ) -> list[str]:
         """
-        Extract terms that are likely to represent a specific
-        scheme/entity mentioned by the user.
+        Extract meaningful terms that may identify a specific
+        scheme/entity.
 
-        Broad queries such as:
+        This method is intentionally lightweight.
 
-            "What scholarships are available for students?"
+        Broad words such as:
 
-        should not be treated as specific-scheme queries.
+            students
+            farmers
+            healthcare
+            assistance
 
-        Specific queries such as:
-
-            "Am I eligible for PM-KISAN?"
-            "Am I eligible for Kuruvai Sagupadi scheme?"
-
-        should produce meaningful terms that can be used to
-        verify whether retrieved documents actually belong
-        to the requested scheme/entity.
+        should not by themselves make a broad discovery query
+        behave like a named-scheme query.
         """
 
         normalized = self._normalize_text(
@@ -251,10 +267,26 @@ class ResearchAgent:
             "available",
             "assistance",
             "benefits",
-            "eligible",
-            "eligibility",
-            "apply",
-            "application",
+            "support",
+            "help",
+            "program",
+            "programs",
+            "programme",
+            "programmes",
+            "student",
+            "students",
+            "farmer",
+            "farmers",
+            "agriculture",
+            "agricultural",
+            "healthcare",
+            "health",
+            "medical",
+            "education",
+            "educational",
+            "tamil",
+            "nadu",
+            "india",
             "latest",
             "current",
             "recent",
@@ -269,6 +301,13 @@ class ResearchAgent:
             "2026",
             "2025",
             "2024",
+            "whether",
+            "qualify",
+            "qualified",
+            "entitled",
+            "please",
+            "my",
+            "am",
         }
 
         meaningful_terms = []
@@ -285,9 +324,15 @@ class ResearchAgent:
                 continue
 
             if word not in meaningful_terms:
-                meaningful_terms.append(word)
+                meaningful_terms.append(
+                    word
+                )
 
         return meaningful_terms
+
+    # ==========================================================
+    # Specific Scheme Detection
+    # ==========================================================
 
     def _is_specific_scheme_query(
         self,
@@ -295,20 +340,44 @@ class ResearchAgent:
         intent: str,
     ) -> bool:
         """
-        Determine whether a query appears to ask about one
-        specific named scheme/entity.
+        Determine whether a query asks about a specific
+        named scheme/entity.
 
-        Eligibility queries are always treated as specific
-        because the user is normally asking eligibility for
-        a particular scheme.
+        Important:
+
+        Broad discovery intents must NEVER be converted into
+        specific scheme retrieval merely because the query
+        contains two or more ordinary words.
+
+        Examples:
+
+            "What schemes are available for students?"
+                -> False
+
+            "What schemes are available for farmers?"
+                -> False
+
+            "What healthcare schemes are available?"
+                -> False
+
+            "Am I eligible for PM-KISAN?"
+                -> True
+
+            "Tell me about Pudhumai Penn Scheme"
+                -> True
         """
+
+        if intent == "scheme_discovery":
+            return False
 
         if intent == "eligibility_check":
             return True
 
-        terms = self._extract_specific_scheme_terms(
-            query
-        )
+        if intent in {
+            "document_query",
+            "application_process",
+        }:
+            return True
 
         normalized = self._normalize_text(
             query
@@ -323,8 +392,12 @@ class ResearchAgent:
             "pudhumai penn",
             "tamizh pudhalvan",
             "tamil pudhalvan",
+            "vetri laptop",
+            "vetri laptop scheme",
             "per drop more crop",
             "micro irrigation",
+            "kuruvai sagupadi",
+            "kuruvai",
         }
 
         for marker in known_scheme_markers:
@@ -332,13 +405,43 @@ class ResearchAgent:
             if marker in normalized:
                 return True
 
-        if len(terms) == 1:
-            return True
+        # ------------------------------------------------------
+        # Do not use "two meaningful words" as a generic
+        # specific-scheme detector.
+        #
+        # That caused broad queries such as:
+        #
+        #   "Tamil Nadu students"
+        #
+        # to behave like named schemes.
+        # ------------------------------------------------------
 
         return False
 
     # ==========================================================
-    # Scheme Matching
+    # Scheme Phrase Extraction
+    # ==========================================================
+
+    def _extract_scheme_phrase(
+        self,
+        query: str,
+    ) -> str:
+        """
+        Extract a compact scheme/entity phrase from a query.
+        """
+
+        terms = (
+            self._extract_specific_scheme_terms(
+                query
+            )
+        )
+
+        return " ".join(
+            terms
+        ).strip()
+
+    # ==========================================================
+    # Document Scheme Matching
     # ==========================================================
 
     def _document_contains_scheme_term(
@@ -347,25 +450,11 @@ class ResearchAgent:
         terms: list[str],
     ) -> bool:
         """
-        Check whether a document belongs to the specific
-        scheme/entity requested by the user.
+        Determine whether a retrieved document actually
+        belongs to the requested scheme/entity.
 
-        All meaningful extracted terms must be present
-        somewhere in the document text or metadata.
-
-        Example:
-
-            Query:
-                Am I eligible for PM-KISAN?
-
-            Terms:
-                ["pm", "kisan"]
-
-            Document:
-                Pradhan Mantri Kisan Samman Nidhi (PM-KISAN)
-
-            Result:
-                True
+        ALL meaningful scheme terms must be present somewhere
+        in the document text or metadata.
         """
 
         if not terms:
@@ -385,7 +474,7 @@ class ResearchAgent:
         )
 
         # ------------------------------------------------------
-        # Document metadata
+        # Metadata
         # ------------------------------------------------------
 
         metadata = document.get(
@@ -421,7 +510,7 @@ class ResearchAgent:
         )
 
         # ------------------------------------------------------
-        # Normalize requested terms.
+        # Normalize terms
         # ------------------------------------------------------
 
         normalized_terms = []
@@ -444,10 +533,7 @@ class ResearchAgent:
             return False
 
         # ------------------------------------------------------
-        # ALL scheme terms must be present.
-        #
-        # This prevents an unrelated scheme from matching
-        # merely because it contains one common word.
+        # Every requested term must occur.
         # ------------------------------------------------------
 
         return all(
@@ -456,7 +542,7 @@ class ResearchAgent:
         )
 
     # ==========================================================
-    # ChromaDB Relevance
+    # ChromaDB Acceptance
     # ==========================================================
 
     def _chroma_results_are_acceptable(
@@ -466,25 +552,12 @@ class ResearchAgent:
         documents: list[dict[str, Any]],
     ) -> bool:
         """
-        Determine whether ChromaDB results are good enough
-        to be used without web fallback.
-
-        Eligibility queries require:
-
-            1. Eligibility-related section.
-            2. Matching requested scheme/entity.
-
-        Specific scheme queries require a matching scheme.
-
-        Broad queries can use semantic retrieval.
+        Determine whether ChromaDB returned sufficiently
+        relevant information.
         """
 
         if not documents:
             return False
-
-        # ------------------------------------------------------
-        # Remove results beyond the configured distance.
-        # ------------------------------------------------------
 
         usable_documents = [
             document
@@ -504,7 +577,7 @@ class ResearchAgent:
             return False
 
         # ======================================================
-        # Eligibility queries
+        # Eligibility
         # ======================================================
 
         if intent == "eligibility_check":
@@ -516,8 +589,10 @@ class ResearchAgent:
                 "Eligibility Requirements",
             }
 
-            terms = self._extract_specific_scheme_terms(
-                query
+            terms = (
+                self._extract_specific_scheme_terms(
+                    query
+                )
             )
 
             for document in usable_documents:
@@ -550,7 +625,7 @@ class ResearchAgent:
             return False
 
         # ======================================================
-        # Specific named scheme query
+        # Specific named scheme
         # ======================================================
 
         if self._is_specific_scheme_query(
@@ -564,24 +639,22 @@ class ResearchAgent:
                 )
             )
 
-            for document in usable_documents:
-
-                if self._document_contains_scheme_term(
+            return any(
+                self._document_contains_scheme_term(
                     document=document,
                     terms=terms,
-                ):
-                    return True
-
-            return False
+                )
+                for document in usable_documents
+            )
 
         # ======================================================
-        # Broad scheme-discovery query
+        # Broad query
         # ======================================================
 
         return True
 
     # ==========================================================
-    # Filter ChromaDB Documents
+    # ChromaDB Filtering
     # ==========================================================
 
     def _filter_chroma_documents(
@@ -591,8 +664,8 @@ class ResearchAgent:
         documents: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
         """
-        Return only ChromaDB documents relevant to the
-        user's request.
+        Filter ChromaDB results to only documents that are
+        relevant to the requested scheme.
         """
 
         usable_documents = [
@@ -613,7 +686,7 @@ class ResearchAgent:
             return []
 
         # ======================================================
-        # Eligibility query
+        # Eligibility
         # ======================================================
 
         if intent == "eligibility_check":
@@ -625,8 +698,10 @@ class ResearchAgent:
                 "Eligibility Requirements",
             }
 
-            terms = self._extract_specific_scheme_terms(
-                query
+            terms = (
+                self._extract_specific_scheme_terms(
+                    query
+                )
             )
 
             matching_documents = []
@@ -665,7 +740,7 @@ class ResearchAgent:
             return matching_documents
 
         # ======================================================
-        # Specific named scheme query
+        # Specific named scheme
         # ======================================================
 
         if self._is_specific_scheme_query(
@@ -679,7 +754,7 @@ class ResearchAgent:
                 )
             )
 
-            matching_documents = [
+            return [
                 document
                 for document in usable_documents
                 if self._document_contains_scheme_term(
@@ -688,8 +763,6 @@ class ResearchAgent:
                 )
             ]
 
-            return matching_documents
-
         # ======================================================
         # Broad query
         # ======================================================
@@ -697,7 +770,128 @@ class ResearchAgent:
         return usable_documents
 
     # ==========================================================
-    # Tavily Search
+    # Scheme-Level Diversification
+    # ==========================================================
+
+    def _diversify_scheme_documents(
+        self,
+        documents: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """
+        Diversify broad retrieval results by scheme.
+
+        ChromaDB retrieves chunks, not schemes.
+
+        Without diversification:
+
+            Scheme A - chunk 1
+            Scheme A - chunk 2
+            Scheme A - chunk 3
+            Scheme A - chunk 4
+            Scheme B - chunk 1
+
+        could consume most of the retrieval window.
+
+        This method keeps a limited number of high-ranked chunks
+        from each unique scheme.
+
+        The logic is domain-independent and works for:
+
+            agriculture
+            education
+            healthcare
+            future domains
+        """
+
+        if not documents:
+            return []
+
+        scheme_counts: dict[str, int] = {}
+        unique_schemes: set[str] = set()
+
+        diversified_documents = []
+
+        for document in documents:
+
+            metadata = document.get(
+                "metadata",
+                {},
+            )
+
+            if not isinstance(
+                metadata,
+                dict,
+            ):
+                metadata = {}
+
+            scheme_name = str(
+                metadata.get(
+                    "scheme_name",
+                    "",
+                )
+            ).strip()
+
+            # --------------------------------------------------
+            # Web documents or documents without scheme metadata
+            # --------------------------------------------------
+
+            if not scheme_name:
+
+                # Preserve non-scheme evidence only if we have
+                # not exceeded the overall discovery capacity.
+                diversified_documents.append(
+                    document
+                )
+
+                continue
+
+            # --------------------------------------------------
+            # New scheme
+            # --------------------------------------------------
+
+            if scheme_name not in unique_schemes:
+
+                if (
+                    len(unique_schemes)
+                    >= self.MAX_DISCOVERY_SCHEMES
+                ):
+                    continue
+
+                unique_schemes.add(
+                    scheme_name
+                )
+
+                scheme_counts[
+                    scheme_name
+                ] = 0
+
+            # --------------------------------------------------
+            # Per-scheme chunk limit
+            # --------------------------------------------------
+
+            current_count = scheme_counts.get(
+                scheme_name,
+                0,
+            )
+
+            if (
+                current_count
+                >= self.MAX_CHUNKS_PER_SCHEME
+            ):
+                continue
+
+            diversified_documents.append(
+                document
+            )
+
+            scheme_counts[
+                scheme_name
+            ] = current_count + 1
+
+        return diversified_documents
+
+    # ==========================================================
+    # Web Search
     # ==========================================================
 
     def _web_search(
@@ -709,7 +903,7 @@ class ResearchAgent:
         Search Tavily and convert web results into the same
         structure used by ChromaDB.
 
-        The URL is taken directly from Tavily.
+        URLs are taken directly from Tavily.
 
         No URL is generated or guessed.
         """
@@ -717,18 +911,24 @@ class ResearchAgent:
         if not self.search_service.is_available():
             return []
 
+        # ------------------------------------------------------
+        # Build search query.
+        # ------------------------------------------------------
+
         if (
             domain
             and domain != "general"
         ):
 
             search_query = (
-                f"{query} {domain} "
+                f"{query} "
+                f"{domain} "
                 "official government scheme "
-                "scheme portal "
-                "scheme application "
+                "government portal "
                 "government notification "
-                "site:gov.in OR site:nic.in OR site:tn.gov.in"
+                "eligibility "
+                "site:gov.in OR site:nic.in "
+                "OR site:tn.gov.in"
             )
 
         else:
@@ -736,10 +936,34 @@ class ResearchAgent:
             search_query = (
                 f"{query} "
                 "official government scheme "
-                "scheme portal "
-                "scheme application "
+                "government portal "
                 "government notification "
                 "site:gov.in OR site:nic.in"
+            )
+
+        # ------------------------------------------------------
+        # For eligibility queries, make the search explicitly
+        # eligibility-oriented.
+        # ------------------------------------------------------
+
+        if (
+            "eligible"
+            in query.lower()
+            or "eligibility"
+            in query.lower()
+            or "qualify"
+            in query.lower()
+        ):
+
+            search_query = (
+                f"{query} "
+                "eligibility criteria "
+                "who is eligible "
+                "who is not eligible "
+                "official government notification "
+                "official government portal "
+                "site:gov.in OR site:nic.in "
+                "OR site:tn.gov.in"
             )
 
         results = self.search_service.search(
@@ -829,9 +1053,9 @@ class ResearchAgent:
                 }
             )
 
-        # ======================================================
-        # Official government sources first.
-        # ======================================================
+        # ------------------------------------------------------
+        # Official sources first.
+        # ------------------------------------------------------
 
         web_documents.sort(
             key=lambda document: (
@@ -873,7 +1097,14 @@ class ResearchAgent:
         Normal queries:
             ChromaDB first.
 
-        If ChromaDB is clearly insufficient:
+        Scheme discovery:
+            ChromaDB first with domain filtering and
+            scheme-level diversification.
+
+        Specific scheme queries:
+            Targeted retrieval.
+
+        If ChromaDB is insufficient:
             Tavily fallback.
         """
 
@@ -892,6 +1123,11 @@ class ResearchAgent:
             "",
         ).strip()
 
+        conversation_history = state.get(
+            "conversation_history",
+            [],
+        )
+
         # ======================================================
         # Empty query
         # ======================================================
@@ -906,17 +1142,62 @@ class ResearchAgent:
             }
 
         # ======================================================
-        # General / unsupported domain
+        # Query Rewriting for Context
+        # ======================================================
+        # If the user gives a follow-up answer (e.g. "yes, I am a student")
+        # or references a numbered scheme ("5th scheme"), the raw query
+        # will fail in semantic search. We use a fast LLM call to rewrite it.
+
+        if conversation_history and intent in ("eligibility_check", "scheme_information", "document_query", "application_process"):
+            history_lines = []
+            for msg in conversation_history[-6:]:
+                role = msg.get("role", "unknown").upper()
+                content = msg.get("content", "").strip()
+                if content:
+                    history_lines.append(f"{role}: {content}")
+            history_text = "\n".join(history_lines)
+
+            rewrite_prompt = f"""
+You are a helpful assistant that rewrites a user's follow-up message into a standalone search query.
+If the user's message is an answer to previous questions (e.g., "Yes, I am a student"), rewrite it to include the NAME of the scheme they are applying for based on the history.
+If the user refers to a scheme by a number (e.g., "5th scheme"), find the exact name of that scheme from the history and replace it.
+If the query already contains the specific scheme name, just return the query as is.
+Return ONLY the rewritten query text. Do not include quotes or explanations.
+
+CONVERSATION HISTORY:
+{history_text}
+
+USER'S CURRENT MESSAGE:
+{query}
+            """.strip()
+
+            try:
+                rewritten_query = self.llm_service.generate(
+                    messages=[{"role": "user", "content": rewrite_prompt}],
+                    temperature=0.0,
+                ).strip()
+                print("DEBUG Rewrite prompt:", rewrite_prompt)
+                print("DEBUG Rewritten query:", rewritten_query)
+                if rewritten_query and len(rewritten_query) < 200:
+                    query = rewritten_query
+            except Exception as e:
+                print("DEBUG Rewrite exception:", e)
+                pass
+
+
+        # ======================================================
+        # General domain
         # ======================================================
 
         if domain == "general":
 
             return {
                 "retrieved_documents": [],
+                "query": query,
             }
 
         # ======================================================
-        # Current information → Tavily first
+        # Current/latest information
         # ======================================================
 
         if self._requires_web_search(
@@ -933,10 +1214,11 @@ class ResearchAgent:
                 return {
                     "retrieved_documents":
                         web_documents,
+                    "query": query,
                 }
 
         # ======================================================
-        # ChromaDB primary search
+        # ChromaDB domain filter
         # ======================================================
 
         where = None
@@ -950,45 +1232,104 @@ class ResearchAgent:
                 "domain": domain,
             }
 
-        # ------------------------------------------------------
-        # Targeted retrieval for eligibility queries.
-        # ------------------------------------------------------
+        # ======================================================
+        # Determine retrieval type
+        # ======================================================
+
+        is_specific = (
+            self._is_specific_scheme_query(
+                query=query,
+                intent=intent,
+            )
+        )
+
+        is_discovery = (
+            intent == "scheme_discovery"
+        )
+
+        # ======================================================
+        # Build retrieval query
+        # ======================================================
 
         retrieval_query = query
 
-        if intent == "eligibility_check":
+        if is_specific:
 
-            scheme_terms = (
-                self._extract_specific_scheme_terms(
+            scheme_phrase = (
+                self._extract_scheme_phrase(
                     query
                 )
             )
 
-            scheme_name = " ".join(
-                scheme_terms
-            ).strip()
+            if intent == "eligibility_check":
 
-            if scheme_name:
+                if scheme_phrase:
+
+                    retrieval_query = (
+                        f"{scheme_phrase} "
+                        "eligibility criteria "
+                        "who is not eligible "
+                        "eligibility requirements"
+                    )
+
+                else:
+
+                    retrieval_query = (
+                        f"{query} "
+                        "eligibility criteria "
+                        "who is not eligible "
+                        "eligibility requirements"
+                    )
+
+            elif intent == "document_query":
 
                 retrieval_query = (
-                    f"{scheme_name} "
-                    "eligibility criteria "
-                    "who is not eligible "
-                    "eligibility requirements"
+                    f"{scheme_phrase} "
+                    "required documents "
+                    "documents required "
+                    "supporting documents"
+                )
+
+            elif intent == "application_process":
+
+                retrieval_query = (
+                    f"{scheme_phrase} "
+                    "application process "
+                    "how to apply "
+                    "where to apply"
                 )
 
             else:
 
                 retrieval_query = (
-                    f"{query} "
-                    "eligibility criteria "
-                    "who is not eligible "
-                    "eligibility requirements"
+                    f"{scheme_phrase} "
+                    "scheme information "
+                    "benefits "
+                    "eligibility "
+                    "application"
                 )
+
+        # ======================================================
+        # Retrieval size
+        # ======================================================
+
+        if is_discovery:
+
+            retrieval_top_k = (
+                self.BROAD_RETRIEVAL_TOP_K
+            )
+
+        else:
+
+            retrieval_top_k = 15
+
+        # ======================================================
+        # Retrieve from ChromaDB
+        # ======================================================
 
         documents = self.retriever.retrieve(
             query=retrieval_query,
-            top_k=15,
+            top_k=retrieval_top_k,
             where=where,
         )
 
@@ -1005,7 +1346,7 @@ class ResearchAgent:
             )
 
         # ======================================================
-        # Determine whether ChromaDB is acceptable
+        # Check ChromaDB relevance
         # ======================================================
 
         if self._chroma_results_are_acceptable(
@@ -1022,16 +1363,28 @@ class ResearchAgent:
                 )
             )
 
+            # --------------------------------------------------
+            # Scheme discovery
+            # --------------------------------------------------
+
+            if is_discovery:
+
+                useful_documents = (
+                    self._diversify_scheme_documents(
+                        useful_documents
+                    )
+                )
+
             if useful_documents:
 
                 return {
                     "retrieved_documents":
                         useful_documents,
+                    "query": query,
                 }
 
         # ======================================================
-        # ChromaDB failed / irrelevant
-        # → Tavily fallback
+        # Tavily fallback
         # ======================================================
 
         web_documents = self._web_search(
@@ -1044,6 +1397,7 @@ class ResearchAgent:
             return {
                 "retrieved_documents":
                     web_documents,
+                "query": query,
             }
 
         # ======================================================
@@ -1052,7 +1406,7 @@ class ResearchAgent:
 
         return {
             "retrieved_documents": [],
+            "query": query,
         }
-
 
 research_agent = ResearchAgent()

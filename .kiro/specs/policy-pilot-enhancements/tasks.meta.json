@@ -1,0 +1,304 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 Create `ConversationHistoryService` class in `backend/app/services/conversation_history_service.py`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641649954
+      },
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641809021
+      }
+    ],
+    "1.3 Implement history entry validation function": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641657195
+      }
+    ],
+    "2.1 Update query API endpoint in `backend/app/api/v1/query.py`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641658878
+      }
+    ],
+    "3.1 Update `buildConversationHistory` function in `frontend/src/hooks/useQuery.js`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641661511
+      }
+    ],
+    "4. Phase 1 Completion Checkpoint": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641662650
+      }
+    ],
+    "5.1 Create `PersonFolder` model in `backend/app/models/person_folder.py`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641663762
+      }
+    ],
+    "5.2 Create `WalletDocument` model in `backend/app/models/wallet_document.py`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641664961
+      }
+    ],
+    "5.3 Create Alembic migration for wallet tables": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641667630
+      }
+    ],
+    "5.5 Update `User` model relationship": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641670246
+      }
+    ],
+    "6.1 Create `FileStorageService` in `backend/app/services/file_storage_service.py`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641672566
+      }
+    ],
+    "7.1 Create wallet API router in `backend/app/api/v1/wallet.py`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641675247
+      }
+    ],
+    "7.2 Implement authorization checks in wallet API": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641676334
+      }
+    ],
+    "8.1 Create `UserDashboard` page component in `frontend/src/pages/UserDashboard.jsx`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641677849
+      }
+    ],
+    "8.2 Create `WalletSection` component in `frontend/src/components/WalletSection.jsx`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641678910
+      }
+    ],
+    "8.3 Create `DocumentList` component in `frontend/src/components/DocumentList.jsx`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641680608
+      }
+    ],
+    "8.4 Create `useWallet` hook in `frontend/src/hooks/useWallet.js`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641681946
+      }
+    ],
+    "9. Phase 2 Completion Checkpoint": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641682966
+      }
+    ],
+    "10.1 Create `PDFReader` service in `backend/app/services/pdf_reader.py`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641684197
+      }
+    ],
+    "10.2 Create `OCRProcessor` service in `backend/app/services/ocr_processor.py`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641685136
+      }
+    ],
+    "10.3 Create `DocumentProcessor` service in `backend/app/services/document_processor.py`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641686965
+      }
+    ],
+    "11.1 Update query API endpoint for multipart upload in `backend/app/api/v1/query.py`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641690686
+      }
+    ],
+    "11.2 Update `PolicyPilotState` in `backend/app/graph/state.py`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641691636
+      }
+    ],
+    "11.3 Update `EligibilityAgent` to use document context": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641692692
+      }
+    ],
+    "11.4 Create `PersonSelectionService` in `backend/app/services/person_selection_service.py`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641693673
+      }
+    ],
+    "12.1 Update `ChatInput` component in `frontend/src/components/ChatInput.jsx`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641694941
+      }
+    ],
+    "12.2 Create `FilePreviewChip` component in `frontend/src/components/FilePreviewChip.jsx`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641695918
+      }
+    ],
+    "12.3 Create `PersonSelectionModal` component in `frontend/src/components/PersonSelectionModal.jsx`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641697245
+      }
+    ],
+    "12.4 Update `useQuery` hook for document handling": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641698253
+      }
+    ],
+    "13. Phase 3 Completion Checkpoint": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641699667
+      }
+    ],
+    "14.1 Create `AuthService` class in `backend/app/services/auth_service.py`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641701747
+      }
+    ],
+    "14.2 Create auth API endpoints in `backend/app/api/v1/auth.py`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641703970
+      }
+    ],
+    "14.3 Create authentication dependencies in `backend/app/api/deps.py`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641704597
+      }
+    ],
+    "15.1 Update query API to support optional authentication": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641705093
+      }
+    ],
+    "15.2 Update wallet API to require authentication": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641705661
+      }
+    ],
+    "16.1 Create `LoginPage` component in `frontend/src/pages/LoginPage.jsx`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641706163
+      }
+    ],
+    "16.2 Create `AuthContext` provider in `frontend/src/contexts/AuthContext.jsx`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641706653
+      }
+    ],
+    "16.3 Create `ProtectedRoute` component in `frontend/src/components/ProtectedRoute.jsx`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641707081
+      }
+    ],
+    "16.4 Create `AnonymousBanner` component in `frontend/src/components/AnonymousBanner.jsx`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641707644
+      }
+    ],
+    "16.5 Update API client with auth interceptors": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641708056
+      }
+    ],
+    "16.6 Update app routing in `frontend/src/App.jsx`": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641709015
+      }
+    ],
+    "17. Phase 4 Completion Checkpoint": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641711228
+      }
+    ],
+    "18. Final Integration Checkpoint": [
+      {
+        "executionId": "0d08683c-3625-4adb-bc40-84c160962069",
+        "chatSessionId": "sess_a1c4953f-1f03-42bc-8914-f7ec3c947eb3",
+        "timestamp": 1786641713628
+      }
+    ]
+  }
+}

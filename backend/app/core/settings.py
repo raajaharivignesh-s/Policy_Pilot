@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # Sentence min chars before TTS starts streaming
     VOICE_TTS_SENTENCE_MIN_CHARS: int = 18
 
+    JWT_SECRET_KEY: str = "super_secret_key_change_me_in_production"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="ignore"

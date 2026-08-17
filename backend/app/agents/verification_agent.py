@@ -1,6 +1,7 @@
 import json
 from typing import Any
 
+from app.core.llm_json import parse_llm_json
 from app.graph.state import PolicyPilotState
 from app.services.llm_service import llm_service
 
@@ -293,7 +294,7 @@ because a low-trust website mentions it.
         # --------------------------------------------------
 
         try:
-            data: dict[str, Any] = json.loads(
+            data: dict[str, Any] = parse_llm_json(
                 response
             )
 

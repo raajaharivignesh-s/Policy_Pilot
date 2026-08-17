@@ -1,0 +1,286 @@
+import { useState, useEffect } from 'react';
+import { 
+  getFolders, createFolder, deleteFolder, 
+  getDocuments, uploadDocument, deleteDocument, getDocumentDownloadUrl 
+} from '../api/wallet';
+
+export default function DashboardPage({ user, token, onLogout, onGoBack }) {
+  const [folders, setFolders] = useState([]);
+  const [activeFolder, setActiveFolder] = useState(null);
+  const [documents, setDocuments] = useState([]);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  useEffect(() => {
+    loadFolders();
+  }, []);
+
+  useEffect(() => {
+    if (activeFolder) {
+      loadDocuments(activeFolder.id);
+    } else {
+      setDocuments([]);
+    }
+  }, [activeFolder]);
+
+  const loadFolders = async () => {
+    try {
+      const data = await getFolders(token);
+      setFolders(data);
+      if (data.length > 0 && !activeFolder) {
+        setActiveFolder(data[0]);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const loadDocuments = async (folderId) => {
+    try {
+      const data = await getDocuments(token, folderId);
+      setDocuments(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleCreateFolder = async (e) => {
+    e.preventDefault();
+    if (!newFolderName.trim()) return;
+    setIsCreatingFolder(true);
+    try {
+      const folder = await createFolder(token, newFolderName.trim());
+      setFolders([...folders, folder]);
+      setActiveFolder(folder);
+      setNewFolderName('');
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsCreatingFolder(false);
+    }
+  };
+
+  const handleDeleteFolder = async (folderId, e) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this folder and all its documents?')) return;
+    try {
+      await deleteFolder(token, folderId);
+      setFolders(folders.filter(f => f.id !== folderId));
+      if (activeFolder?.id === folderId) {
+        setActiveFolder(null);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    if (!e.target.files || e.target.files.length === 0 || !activeFolder) return;
+    setIsUploading(true);
+    try {
+      const file = e.target.files[0];
+      const doc = await uploadDocument(token, activeFolder.id, file);
+      setDocuments([...documents, doc]);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to upload document');
+    } finally {
+      setIsUploading(false);
+      e.target.value = null; // Reset input
+    }
+  };
+
+  const handleDeleteDocument = async (docId) => {
+    if (!confirm('Are you sure you want to delete this document?')) return;
+    try {
+      await deleteDocument(token, docId);
+      setDocuments(documents.filter(d => d.id !== docId));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDownloadDocument = (docId) => {
+    const downloadFn = getDocumentDownloadUrl(token, docId);
+    downloadFn().catch(err => {
+      console.error(err);
+      alert('Failed to download document');
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-[#FAFAFA] flex flex-col font-sans">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={onGoBack}
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 text-gray-500 hover:bg-gray-100 transition-colors"
+          >
+            ←
+          </button>
+          <h1 className="text-xl font-bold text-gray-900 font-serif-title">User Dashboard</h1>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <p className="text-sm font-bold text-gray-900">{user?.name || 'Citizen'}</p>
+            <p className="text-xs text-gray-500">{user?.email}</p>
+          </div>
+          <button 
+            onClick={onLogout}
+            className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+          >
+            Logout
+          </button>
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-7xl w-full mx-auto p-6 md:p-8 flex flex-col items-center">
+        {/* Profile Section */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-24 h-24 bg-gradient-to-br from-[#FF6B00] to-[#FF8A33] rounded-full flex items-center justify-center text-white text-4xl shadow-lg mb-4">
+            {user?.name ? user.name.charAt(0).toUpperCase() : '👤'}
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900">{user?.name || 'Citizen'}</h2>
+          <p className="text-sm text-gray-500">{user?.email}</p>
+        </div>
+        
+        {/* Wallet Section */}
+        <div className="w-full flex gap-8 flex-col md:flex-row">
+        <div className="w-full md:w-80 flex-shrink-0 flex flex-col gap-4">
+          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Document Wallet</h2>
+            
+            <form onSubmit={handleCreateFolder} className="flex gap-2 mb-6">
+              <input 
+                type="text" 
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="New folder name..."
+                className="flex-1 text-sm px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6B00]/50"
+              />
+              <button 
+                type="submit"
+                disabled={isCreatingFolder || !newFolderName.trim()}
+                className="px-3 py-2 bg-[#FF6B00] text-white text-sm font-medium rounded-lg hover:bg-[#E66000] disabled:opacity-50 transition-colors"
+              >
+                Add
+              </button>
+            </form>
+
+            <div className="space-y-1">
+              {folders.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">No folders yet.</p>
+              ) : (
+                folders.map(folder => (
+                  <div 
+                    key={folder.id}
+                    onClick={() => setActiveFolder(folder)}
+                    className={`group flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors ${
+                      activeFolder?.id === folder.id 
+                        ? 'bg-orange-50 border border-orange-100' 
+                        : 'hover:bg-gray-50 border border-transparent'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">📁</span>
+                      <span className={`text-sm font-medium ${activeFolder?.id === folder.id ? 'text-[#FF6B00]' : 'text-gray-700'}`}>
+                        {folder.name}
+                      </span>
+                    </div>
+                    <button 
+                      onClick={(e) => handleDeleteFolder(folder.id, e)}
+                      className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Documents Area */}
+        <div className="flex-1 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm min-h-[500px] flex flex-col">
+          {activeFolder ? (
+            <>
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">{activeFolder.name}</h3>
+                  <p className="text-sm text-gray-500">Manage documents for this folder</p>
+                </div>
+                <div>
+                  <label className="cursor-pointer bg-gradient-to-r from-[#FF6B00] to-[#FF8A33] text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:shadow-lg hover:shadow-orange-500/25 transition-all inline-flex items-center gap-2">
+                    {isUploading ? 'Uploading...' : 'Upload Document'}
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      onChange={handleFileUpload}
+                      disabled={isUploading}
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {documents.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center">
+                  <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                    <span className="text-3xl text-gray-400">📄</span>
+                  </div>
+                  <h4 className="text-lg font-medium text-gray-900 mb-1">No documents yet</h4>
+                  <p className="text-sm text-gray-500 max-w-sm">
+                    Upload documents like Aadhaar, PAN card, or Income Certificates to use them for eligibility checks.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {documents.map(doc => (
+                    <div key={doc.id} className="border border-gray-200 rounded-xl p-4 hover:border-orange-300 transition-colors group relative bg-gray-50/50">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="w-10 h-10 rounded-lg bg-orange-100 text-[#FF6B00] flex items-center justify-center text-xl shrink-0">
+                          {doc.file_type?.includes('pdf') ? '📑' : '🖼️'}
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={() => handleDownloadDocument(doc.id)}
+                            className="p-1.5 text-gray-400 hover:text-blue-500 bg-white rounded-md shadow-sm border border-gray-100"
+                            title="Download"
+                          >
+                            ⬇️
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteDocument(doc.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-500 bg-white rounded-md shadow-sm border border-gray-100"
+                            title="Delete"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                      <h4 className="text-sm font-semibold text-gray-900 truncate" title={doc.filename}>{doc.filename}</h4>
+                      <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                        <span>{doc.file_size ? (doc.file_size / 1024).toFixed(1) + ' KB' : 'Unknown size'}</span>
+                        <span>{new Date(doc.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-center">
+              <div className="w-20 h-20 bg-orange-50 text-[#FF6B00] rounded-full flex items-center justify-center mb-4 text-3xl">
+                📁
+              </div>
+              <h4 className="text-lg font-medium text-gray-900 mb-1">Select a folder</h4>
+              <p className="text-sm text-gray-500">Create or select a folder from the sidebar to view documents.</p>
+            </div>
+          )}
+        </div>
+        </div>
+      </main>
+    </div>
+  );
+}

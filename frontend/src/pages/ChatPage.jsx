@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import ChatHeader from '../components/ChatHeader';
 import EmptyStateHero from '../components/EmptyStateHero';
@@ -6,6 +6,13 @@ import ChatMessage from '../components/ChatMessage';
 import ChatInput from '../components/ChatInput';
 import ProcessingStepper from '../components/ProcessingStepper';
 import queryBgImage from '../assets/query background image.png';
+
+// Import message cards rendered directly in the chat layout
+import FinalResponseCard from '../components/FinalResponseCard';
+import RecommendationsCard from '../components/RecommendationsCard';
+import EligibilityCard from '../components/EligibilityCard';
+import DocumentsCard from '../components/DocumentsCard';
+import { useVoice } from '../hooks/useVoice';
 
 export default function ChatPage({
   chats,
@@ -18,6 +25,8 @@ export default function ChatPage({
   clearAllChats,
   queryText,
   setQueryText,
+  targetFolderId,
+  setTargetFolderId,
   isLoading,
   activeStep,
   doneSteps,
@@ -27,11 +36,42 @@ export default function ChatPage({
   setMobileSidebarOpen,
   onGoToLanding,
   addVoiceMessage,
+  user,
+  token,
+  onLogout,
+  onGoToDashboard,
 }) {
+  const voice = useVoice({
+    onVoiceDone: (transcript, responseText) => {
+      if (addVoiceMessage) {
+        addVoiceMessage(transcript, responseText);
+      }
+    },
+  });
+
+  const [folders, setFolders] = useState([]);
   const messagesEndRef = useRef(null);
+
+  const refreshFolders = () => {
+    if (token) {
+      import('../api/wallet').then(module => {
+        module.getFolders(token)
+          .then(data => setFolders(data))
+          .catch(err => console.error(err));
+      });
+    }
+  };
+
+  // Fetch folders on mount
+  useEffect(() => {
+    refreshFolders();
+  }, [token]);
 
   const messages = activeChat?.messages || [];
   const activeTitle = activeChat?.title || 'Scheme Discovery Workspace';
+
+  // Find the last user message to pass as query context for verification
+  const lastUserMessage = [...messages].reverse().find(m => m.sender === 'user')?.text || '';
 
   // Scroll to bottom when messages update or loading
   useEffect(() => {
@@ -52,6 +92,9 @@ export default function ChatPage({
         isOpen={mobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}
         onGoToLanding={onGoToLanding}
+        user={user}
+        onLogout={onLogout}
+        onGoToDashboard={onGoToDashboard}
       />
 
       {/* Main Canvas Workspace */}
@@ -87,7 +130,52 @@ export default function ChatPage({
                     onRerun = () => runQuery(prevUser.text);
                   }
                 }
-                return <ChatMessage key={msg.id} message={msg} onRerun={onRerun} />;
+                return (
+                  <div key={msg.id} className="space-y-4">
+                    {msg.sender === 'user' ? (
+                      <ChatMessage message={msg} onRerun={onRerun} />
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Assistant message structure */}
+                        <div className="flex items-start gap-4 max-w-4xl animate-fade-up">
+                          <div className="w-9 h-9 rounded-2xl text-white flex items-center justify-center text-base shadow-sm flex-shrink-0 mt-1 select-none">
+                            <LogoMark size={24} />
+                          </div>
+                          <div className="flex-1 space-y-4 min-w-0">
+                            {msg.error && (
+                              <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-start gap-3">
+                                <span>⚠️</span>
+                                <div>
+                                  <h4 className="font-bold mb-1">Execution Error</h4>
+                                  <p>{msg.error}</p>
+                                </div>
+                              </div>
+                            )}
+                            {msg.data && (
+                              <div className="space-y-4">
+                                <FinalResponseCard data={msg.data} onRerun={onRerun} />
+                                <RecommendationsCard recommendations={msg.data.recommendations} />
+                                <EligibilityCard eligibilityResults={msg.data.eligibility_results} />
+                                <DocumentsCard 
+                                  requiredDocuments={msg.data.required_documents}
+                                  folders={folders}
+                                  token={token}
+                                  runQuery={runQuery}
+                                  setTargetFolderId={setTargetFolderId}
+                                  lastQuery={lastUserMessage}
+                                  refreshFolders={refreshFolders}
+                                />
+                              </div>
+                            )}
+                            <span className="block text-[10px] text-gray-400">
+                              {msg.timestamp}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
               })}
 
               {/* Stepper while AI processes query */}
@@ -112,6 +200,7 @@ export default function ChatPage({
           setQueryText={setQueryText}
           isLoading={isLoading}
           onSubmit={() => runQuery()}
+          voice={voice}
         />
       </div>
     </div>

@@ -49,28 +49,35 @@ export default function RecommendationsCard({ recommendations }) {
       {/* Grid of scheme cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {recommendations.map((scheme, i) => {
-          const name = scheme.scheme_name || scheme.name || `Scheme ${i + 1}`;
+          let name = scheme.scheme_name || scheme.name || `Scheme ${i + 1}`;
+          // Strip markdown links if present, e.g. "[Link Text](url)" -> "Link Text"
+          name = name.replace(/\[(.*?)\]\(.*?\)/g, '$1');
+          
           const desc = scheme.description || scheme.benefits || scheme.summary || '';
           const tags = scheme.tags || scheme.categories || [];
           const benefitText = scheme.benefit_amount || scheme.benefit || 'Verified Benefit';
           const officialUrl = scheme.official_url || scheme.source_url || scheme.domain_url || scheme.source || '';
-          const linkUrl = officialUrl
+          const hasUrl = !!officialUrl;
+          const linkUrl = hasUrl
             ? officialUrl.startsWith('http')
               ? officialUrl
               : `https://${officialUrl}`
-            : 'https://india.gov.in';
-          const displayUrl = officialUrl
+            : null;
+          const displayUrl = hasUrl
             ? officialUrl.replace(/^https?:\/\//, '')
-            : 'india.gov.in';
+            : null;
           const bannerColor = bannerColors[i % bannerColors.length];
 
+          const CardWrapper = hasUrl ? 'a' : 'div';
+          const cardProps = hasUrl
+            ? { href: linkUrl, target: '_blank', rel: 'noopener noreferrer' }
+            : {};
+
           return (
-            <a
+            <CardWrapper
               key={i}
-              href={linkUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-white border border-[#E6E4DF] rounded-2xl p-4 flex flex-col justify-between hover:shadow-lg hover:shadow-orange-500/5 hover:border-amber-300 transition-all duration-200 group cursor-pointer no-underline"
+              {...cardProps}
+              className={`bg-white border border-[#E6E4DF] rounded-2xl p-4 flex flex-col justify-between hover:shadow-lg hover:shadow-orange-500/5 hover:border-amber-300 transition-all duration-200 group ${hasUrl ? 'cursor-pointer' : ''} no-underline`}
             >
               <div>
                 {/* Top Banner — national emblem + label centered */}
@@ -100,27 +107,7 @@ export default function RecommendationsCard({ recommendations }) {
                   </div>
                 )}
               </div>
-
-              {/* Domain Link */}
-              <div className="pt-3 border-t border-[#F1EFEA] flex items-center justify-between text-xs text-gray-500 gap-2">
-                <a
-                  href={linkUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 min-w-0 flex items-center gap-1 text-[11px] font-medium text-amber-800 hover:text-amber-900 transition-colors break-words"
-                >
-                  <IconGlobe /> <span className="truncate">{displayUrl}</span>
-                </a>
-                <a
-                  href={linkUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-shrink-0 text-gray-400 group-hover:text-gray-700 transition-colors"
-                >
-                  <IconArrowUpRight />
-                </a>
-              </div>
-            </a>
+            </CardWrapper>
           );
         })}
       </div>
