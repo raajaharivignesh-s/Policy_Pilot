@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     # Voice AI (WebSocket Streaming)
     # ==========================================
     VOICE_STT_MODEL: str = "whisper-1"
-    VOICE_TTS_MODEL: str = "gpt-4o-mini-tts"
+    VOICE_TTS_MODEL: str = "tts-1"
     VOICE_TTS_VOICE: str = "nova"
     # Sentence min chars before TTS starts streaming
     VOICE_TTS_SENTENCE_MIN_CHARS: int = 18
