@@ -12,7 +12,7 @@ import FinalResponseCard from '../components/FinalResponseCard';
 import RecommendationsCard from '../components/RecommendationsCard';
 import EligibilityCard from '../components/EligibilityCard';
 import DocumentsCard from '../components/DocumentsCard';
-import { useVoice } from '../hooks/useVoice';
+import LogoMark from '../components/LogoMark';
 
 export default function ChatPage({
   chats,
@@ -41,13 +41,6 @@ export default function ChatPage({
   onLogout,
   onGoToDashboard,
 }) {
-  const voice = useVoice({
-    onVoiceDone: (transcript, responseText) => {
-      if (addVoiceMessage) {
-        addVoiceMessage(transcript, responseText);
-      }
-    },
-  });
 
   const [folders, setFolders] = useState([]);
   const messagesEndRef = useRef(null);
@@ -200,7 +193,6 @@ export default function ChatPage({
           setQueryText={setQueryText}
           isLoading={isLoading}
           onSubmit={() => runQuery()}
-          voice={voice}
         />
       </div>
     </div>
