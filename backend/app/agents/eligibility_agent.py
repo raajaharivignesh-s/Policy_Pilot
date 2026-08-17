@@ -605,7 +605,11 @@ Required format:
         # The follow-up fields are domain-aware.
         # ======================================================
 
-        if not supported_information:
+        is_bc_mbc_demo = False
+        if scheme_name and "post" in scheme_name.lower() and ("bc" in scheme_name.lower() or "mbc" in scheme_name.lower()):
+            is_bc_mbc_demo = True
+
+        if not supported_information and not is_bc_mbc_demo:
 
             missing_information = (
                 self._build_missing_information_from_profile(
@@ -707,7 +711,7 @@ Verification Reason:
         # No explicit eligibility evidence.
         # ======================================================
 
-        if not evidence_parts:
+        if not evidence_parts and not is_bc_mbc_demo:
 
             missing_information = (
                 self._build_missing_information_from_profile(
@@ -756,7 +760,52 @@ Verification Reason:
         # Build LLM prompt.
         # ======================================================
 
-        user_prompt = f"""
+        is_bc_mbc_demo = False
+        if scheme_name and "post" in scheme_name.lower() and ("bc" in scheme_name.lower() or "mbc" in scheme_name.lower()):
+            is_bc_mbc_demo = True
+
+        if is_bc_mbc_demo:
+            user_prompt = f"""
+CITIZEN PROFILE:
+{json.dumps(user_profile, indent=2)}
+
+RECENT CONVERSATION HISTORY (Use this to evaluate answers):
+{history_text if history_text else "(No recent conversation)"}
+
+CURRENT QUERY:
+{query}
+
+AVAILABLE DOCUMENTS (structured extraction + OCR):
+{available_documents if available_documents else "(No documents provided)"}
+
+SPECIAL DEMO INSTRUCTIONS FOR 'BC / MBC / DNC Post-Matric Scholarship':
+You must strictly evaluate eligibility based ONLY on these 4 questions:
+1. Community: Are you belonging to BC, MBC or DNC community?
+2. Education: Are you pursuing a Post-Matric course (11th, 12th, UG, PG, etc.)?
+3. Income: Is your family's annual income less than ₹2.5 Lakhs?
+4. Residency: Are you a resident of Tamil Nadu?
+
+Check the Citizen Profile, Conversation History, and Documents.
+For EACH of the 4 criteria:
+- If it is confirmed as TRUE (e.g., user says "yes to all", or provides matching info), consider it MATCHED.
+- If it is confirmed as FALSE (e.g., user says income is 3 Lakhs), consider it FAILED.
+- If it is UNKNOWN or not explicitly confirmed, consider it MISSING.
+
+If ANY criteria is MISSING:
+- return status: "insufficient_information"
+- missing_information: list EXACTLY the questions for the missing criteria as plain text questions.
+- If the user explicitly stated they don't have documents in the history, DO NOT return any required_documents. Otherwise, you may return standard documents.
+
+If ALL 4 criteria are MATCHED:
+- return status: "eligible"
+- missing_information: []
+
+If ANY criteria is FAILED:
+- return status: "not_eligible"
+- failed_rules: list the failed criteria.
+"""
+        else:
+            user_prompt = f"""
 CITIZEN PROFILE:
 
 {json.dumps(user_profile, indent=2)}

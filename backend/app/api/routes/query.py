@@ -310,6 +310,10 @@ async def process_query(
         )
 
     except Exception as exc:
+        import traceback
+        with open("error.log", "a") as f:
+            f.write("Workflow execution failed:\\n")
+            traceback.print_exc(file=f)
 
         raise HTTPException(
             status_code=500,
