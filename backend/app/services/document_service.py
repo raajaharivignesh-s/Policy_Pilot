@@ -72,7 +72,8 @@ class DocumentService:
     def extract_text_from_image(self, file_path: str) -> Optional[str]:
         try:
             import base64
-            from app.services.llm_service import llm_service
+            from app.core.settings import settings
+            from app.services.openai_service import openai_service
 
             with open(file_path, "rb") as image_file:
                 encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
@@ -107,7 +108,13 @@ class DocumentService:
                 }
             ]
             
-            ocr_text = llm_service.generate(messages=messages)
+            # Use vision-capable model explicitly (fast lite model doesn't support images)
+            response = openai_service.client.chat.completions.create(
+                model=settings.VISION_MODEL,
+                messages=messages,
+                temperature=0.0,
+            )
+            ocr_text = response.choices[0].message.content or ""
             return ocr_text.strip()
         except Exception as e:
             logger.error(f"Failed to extract text from image via LLM: {e}")

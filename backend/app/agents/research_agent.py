@@ -32,7 +32,7 @@ class ResearchAgent:
 
     # Number of chunks retrieved from ChromaDB before applying
     # scheme-level diversification.
-    BROAD_RETRIEVAL_TOP_K = 25
+    BROAD_RETRIEVAL_TOP_K = 8
 
     # Number of chunks retained from one scheme for a broad
     # discovery query.
@@ -1321,7 +1321,7 @@ USER'S CURRENT MESSAGE:
 
         else:
 
-            retrieval_top_k = 15
+            retrieval_top_k = 4
 
         # ======================================================
         # Retrieve from ChromaDB

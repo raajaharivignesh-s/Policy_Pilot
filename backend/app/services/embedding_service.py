@@ -8,7 +8,7 @@ class EmbeddingService:
     """
 
     def __init__(self):
-        self.client = openai_service.client
+        self.client = openai_service.navigate_client
         self.model = openai_service.get_embedding_model()
 
     def generate_embedding(self, text: str) -> list[float]:

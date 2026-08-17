@@ -54,15 +54,11 @@ Unknown, private, aggregator, social media, or user-generated
 source. It cannot independently establish that a government
 scheme officially exists.
 
-For EVERY retrieved document, return exactly one verification
-entry.
+For EVERY retrieved document, evaluate if it supports the user's question.
 
-Even when a document does NOT support the user's question,
-you MUST still return an entry for that document with:
+ONLY return verification entries for documents that SUPPORT the user's question.
 
-"supported": false
-
-Do not omit documents from the verification result.
+If a document does NOT support the question, DO NOT include it in the verification result.
 
 Return ONLY valid JSON in this exact format:
 
@@ -80,9 +76,9 @@ Return ONLY valid JSON in this exact format:
 
 Rules:
 
-- Return exactly one result for every supplied DOCUMENT.
+- Only return results for documents that support the question.
 - document_index must refer to the DOCUMENT number provided.
-- supported must be either true or false.
+- supported must be true.
 - Do not invent document indexes.
 
 Scheme name rules:
@@ -113,7 +109,7 @@ Evidence rules:
 
 - Do not add facts that are absent from the retrieved document.
 - If the document does not actually support the question,
-  mark supported as false.
+  do not include it in the results.
 - Keep the reason short.
 
 Trust rules:
@@ -128,9 +124,7 @@ Trust rules:
 
 Important:
 
-A document can be returned with supported=false.
-
-Never omit a document merely because it is unsupported.
+Omit any document that does not support the question.
 """.strip()
 
     def __init__(self):
@@ -243,7 +237,7 @@ RETRIEVED INFORMATION:
 
 Evaluate EVERY DOCUMENT.
 
-Return exactly one verification result for every document.
+ONLY return a verification result if the document supports the question.
 
 For each supported document, identify a scheme name only
 when that exact scheme is explicitly identifiable in the
@@ -255,13 +249,7 @@ Do not infer a scheme name merely because the document
 belongs to an agriculture, education, healthcare, or other
 government department.
 
-If the document does not support the question, return:
-
-"supported": false
-
-for that document.
-
-Do not omit unsupported documents.
+If the document does not support the question, DO NOT return an entry for it.
 
 Pay particular attention to the source trust level.
 

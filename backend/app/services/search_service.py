@@ -37,7 +37,7 @@ class SearchService:
         self,
         query: str,
         max_results: int = 5,
-        search_depth: str = "advanced",
+        search_depth: str = "basic",
     ) -> list[dict[str, Any]]:
         """
         Search the web using Tavily.

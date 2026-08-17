@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import LogoMark from './LogoMark';
 
-<<<<<<< HEAD
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
 const IconMic = ({ size = 20 }) => (
@@ -10,14 +9,6 @@ const IconMic = ({ size = 20 }) => (
     <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
     <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
     <line x1="12" x2="12" y1="19" y2="22"/>
-=======
-// Larger mic SVG icon
-const IconMic = ({ size = 22 }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-    <line x1="12" x2="12" y1="19" y2="22" />
->>>>>>> feature/policy-enhancement
   </svg>
 );
 
@@ -29,21 +20,14 @@ const IconStop = ({ size = 16 }) => (
 );
 
 const IconSend = () => (
-<<<<<<< HEAD
   <svg xmlns="http://www.w3.org/2000/svg" width={18} height={18} viewBox="0 0 24 24"
     fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="m22 2-7 20-4-9-9-4Z"/>
     <path d="M22 2 11 13"/>
-=======
-  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m22 2-7 20-4-9-9-4Z" />
-    <path d="M22 2 11 13" />
->>>>>>> feature/policy-enhancement
   </svg>
 );
 
 const IconShield = () => (
-<<<<<<< HEAD
   <svg xmlns="http://www.w3.org/2000/svg" width={12} height={12} viewBox="0 0 24 24"
     fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -59,23 +43,11 @@ const IconVolumeOff = () => (
     <line x1="12" y1="19" x2="12" y2="22"/>
   </svg>
 );
-
-=======
-  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-  </svg>
-);
-
->>>>>>> feature/policy-enhancement
 export default function ChatInput({
   queryText,
   setQueryText,
   isLoading,
-<<<<<<< HEAD
   onSubmit,
-=======
-  onSubmit
->>>>>>> feature/policy-enhancement
 }) {
   const [isRecording, setIsRecording] = useState(false);
   const [voiceError, setVoiceError] = useState(null);
@@ -83,11 +55,7 @@ export default function ChatInput({
 
   const recognitionRef = useRef(null);
   const isRecordingRef = useRef(false);
-<<<<<<< HEAD
-=======
-  isRecordingRef.current = isRecording;
 
->>>>>>> feature/policy-enhancement
   const baseTextRef = useRef('');
   const finalTranscriptRef = useRef('');
 
@@ -347,18 +315,11 @@ export default function ChatInput({
         {/* ── Main Input Form ─────────────────────────────────────────────── */}
         <form
           onSubmit={handleSubmit}
-<<<<<<< HEAD
           className={`bg-white/95 backdrop-blur-xs rounded-3xl border shadow-xl p-4 space-y-3 transition-all duration-200 ${
             isRecording
               ? 'border-rose-400 ring-4 ring-rose-100/80 shadow-rose-200/50'
               : 'border-gray-300 focus-within:border-[#FF5500] focus-within:ring-2 focus-within:ring-orange-100'
           }`}
-=======
-          className={`bg-white/95 backdrop-blur-xs rounded-3xl border shadow-xl p-4 space-y-3 transition-all duration-200 ${isRecording
-            ? 'border-rose-400 ring-2 ring-rose-100'
-            : 'border-gray-300 focus-within:border-[#FF5500] focus-within:ring-2 focus-within:ring-orange-100'
-            }`}
->>>>>>> feature/policy-enhancement
         >
           <div className="flex items-start gap-2">
             <span className="text-orange-500 text-lg mt-0.5 select-none">
@@ -392,20 +353,12 @@ export default function ChatInput({
                 type="button"
                 id="voice-mic-btn"
                 onClick={toggleRecording}
-<<<<<<< HEAD
                 className={`p-2.5 rounded-full transition-all duration-200 cursor-pointer flex items-center justify-center ${
                   isRecording
                     ? 'text-white bg-rose-600 hover:bg-rose-700 ring-4 ring-rose-200 animate-pulse shadow-md scale-105'
                     : 'text-gray-500 hover:text-[#FF5500] hover:bg-orange-50 active:scale-95'
                 }`}
                 title={isRecording ? 'Stop voice recording' : 'Speak your query (Live Voice STT)'}
-=======
-                className={`p-2.5 rounded-full transition-colors ${isRecording
-                  ? 'text-rose-600 bg-rose-50 border border-rose-200'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                  }`}
-                title={isRecording ? 'Stop recording' : 'Voice input'}
->>>>>>> feature/policy-enhancement
               >
                 {isRecording ? <IconStop size={18} /> : <IconMic size={20} />}
               </button>

@@ -8,7 +8,11 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     OPENAI_BASE_URL: str = "https://api.openai.com/v1"
 
+    NAVIGATE_API_KEY: str = ""
+    NAVIGATE_BASE_URL: str = ""
+
     LLM_MODEL: str = "gpt-4.1-nano"
+    VISION_MODEL: str = "models/gemini-flash-lite-latest"
     EMBEDDING_MODEL: str = "text-embedding-3-small"
 
     DATABASE_URL: str = ""

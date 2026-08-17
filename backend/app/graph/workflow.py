@@ -15,6 +15,13 @@ from app.graph.router import route_after_verification
 from app.graph.state import PolicyPilotState
 
 
+def sync_understanding(state: PolicyPilotState):
+    """
+    Dummy node to synchronize parallel execution of understanding agents.
+    """
+    return {}
+
+
 def route_after_domain(
     state: PolicyPilotState,
 ) -> str:
@@ -147,6 +154,11 @@ def build_workflow():
         final_response_agent.run,
     )
 
+    graph.add_node(
+        "sync_understanding",
+        sync_understanding,
+    )
+
     # ==================================================
     # START → Initialize
     # ==================================================
@@ -157,7 +169,7 @@ def build_workflow():
     )
 
     # ==================================================
-    # Main understanding pipeline
+    # Main understanding pipeline (Parallel)
     # ==================================================
 
     graph.add_edge(
@@ -166,13 +178,28 @@ def build_workflow():
     )
 
     graph.add_edge(
-        "profile_extraction_agent",
+        "initialize_state",
         "intent_agent",
     )
 
     graph.add_edge(
-        "intent_agent",
+        "initialize_state",
         "domain_agent",
+    )
+
+    graph.add_edge(
+        "profile_extraction_agent",
+        "sync_understanding",
+    )
+
+    graph.add_edge(
+        "intent_agent",
+        "sync_understanding",
+    )
+
+    graph.add_edge(
+        "domain_agent",
+        "sync_understanding",
     )
 
     # ==================================================
@@ -180,7 +207,7 @@ def build_workflow():
     # ==================================================
 
     graph.add_conditional_edges(
-        "domain_agent",
+        "sync_understanding",
         route_after_domain,
         {
             "research_agent": "research_agent",

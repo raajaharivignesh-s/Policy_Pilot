@@ -22,8 +22,10 @@ Key latency optimisations:
     LLM generation of sentence N+1.
 """
 
+from app.core import llm_json
 import asyncio
 import io
+import json
 import re
 import time
 from collections.abc import AsyncGenerator
@@ -40,8 +42,8 @@ from app.core.settings import settings
 
 def _make_async_client() -> AsyncOpenAI:
     return AsyncOpenAI(
-        api_key=settings.OPENAI_API_KEY,
-        base_url=settings.OPENAI_BASE_URL,
+        api_key=settings.NAVIGATE_API_KEY or settings.OPENAI_API_KEY,
+        base_url=settings.NAVIGATE_BASE_URL or settings.OPENAI_BASE_URL,
     )
 
 
